@@ -34,16 +34,6 @@ const patches = new Map<string, PlaybookPatch>([
   [patchFixture.patchId, patchFixture as PlaybookPatch],
 ]);
 
-function resolveJsonPath(obj: Record<string, unknown>, path: string): unknown {
-  const parts = path.replace(/^\//, "").split("/");
-  let current: unknown = obj;
-  for (const p of parts) {
-    if (current == null || typeof current !== "object") return undefined;
-    current = (current as Record<string, unknown>)[p];
-  }
-  return current;
-}
-
 function setJsonPath(obj: Record<string, unknown>, path: string, value: unknown) {
   const parts = path.replace(/^\//, "").split("/");
   let current: Record<string, unknown> = obj;
@@ -53,6 +43,15 @@ function setJsonPath(obj: Record<string, unknown>, path: string, value: unknown)
   current[parts[parts.length - 1]] = value;
 }
 
+function deleteJsonPath(obj: Record<string, unknown>, path: string) {
+  const parts = path.replace(/^\//, "").split("/");
+  let current: Record<string, unknown> = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    current = current[parts[i]] as Record<string, unknown>;
+  }
+  delete current[parts[parts.length - 1]];
+}
+
 function collectEditablePaths(playbook: Playbook): string[] {
   return Object.values(playbook.rules).flatMap((r) => r.editablePaths);
 }
@@ -60,6 +59,7 @@ function collectEditablePaths(playbook: Playbook): string[] {
 export class FixtureSource implements DataSource {
   kind = "fixture" as const;
   private _activeVersion = playbookFixture.version;
+  private _activeRecommendationIds = new Set<string>([rec1Fixture.recommendationId]);
 
   async listObservations() {
     return [...observations.values()];
@@ -70,7 +70,9 @@ export class FixtureSource implements DataSource {
     return obs;
   }
   async listRecommendations() {
-    return [...recommendations.values()];
+    return [...this._activeRecommendationIds]
+      .map((id) => recommendations.get(id))
+      .filter((rec): rec is Recommendation => rec != null);
   }
   async getRecommendation(id: string) {
     const rec = recommendations.get(id);
@@ -100,7 +102,22 @@ export class FixtureSource implements DataSource {
     return traceFixture as TraceData;
   }
   async applyPatch(patch: PlaybookPatch): Promise<PatchApplyResult> {
-    const playbook = await this.getPlaybook(patch.playbookId, patch.baseVersion);
+    if (patch.baseVersion !== this._activeVersion) {
+      return {
+        patchId: patch.patchId,
+        playbookId: patch.playbookId,
+        oldVersion: this._activeVersion,
+        newVersion: this._activeVersion,
+        status: "rejected",
+        validationErrors: [
+          `PLAYBOOK_VERSION_MISMATCH: baseVersion=${patch.baseVersion} activeVersion=${this._activeVersion}`,
+        ],
+        recomputedRecommendationId: null,
+        appliedAt: new Date().toISOString(),
+      };
+    }
+
+    const playbook = await this.getPlaybook(patch.playbookId, this._activeVersion);
     const allowed = collectEditablePaths(playbook);
 
     for (const op of patch.operations) {
@@ -121,8 +138,11 @@ export class FixtureSource implements DataSource {
     // Deep clone + apply
     const patched = JSON.parse(JSON.stringify(playbook)) as Playbook;
     for (const op of patch.operations) {
-      if (op.op === "replace") {
+      if (op.op === "replace" || op.op === "add") {
         setJsonPath(patched as unknown as Record<string, unknown>, op.path, op.value);
+      }
+      if (op.op === "remove") {
+        deleteJsonPath(patched as unknown as Record<string, unknown>, op.path);
       }
     }
     patched.version = patch.baseVersion + 1;
@@ -130,6 +150,7 @@ export class FixtureSource implements DataSource {
     this._activeVersion = patched.version;
 
     playbooks.set(`${patched.playbookId}@${patched.version}`, patched);
+    this._activeRecommendationIds.add(rec2Fixture.recommendationId);
 
     return {
       patchId: patch.patchId,

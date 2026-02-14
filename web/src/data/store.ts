@@ -29,7 +29,7 @@ export type Action =
   | { type: "SET_DATA"; observations: Observation[]; recommendations: Recommendation[]; playbook: Playbook; weather: WeatherFeatures; patches: PlaybookPatch[]; trace: TraceData }
   | { type: "SET_LIVE_MODE"; enabled: boolean }
   | { type: "SELECT"; id: string | null }
-  | { type: "PATCH_APPLIED"; result: PatchApplyResult; patchedPlaybook: Playbook }
+  | { type: "PATCH_APPLIED"; result: PatchApplyResult; patchedPlaybook: Playbook; recommendations: Recommendation[] }
   | { type: "SWAP_RECOMMENDATION"; from: string; to: string };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -54,6 +54,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         patchResult: action.result,
         playbook: action.patchedPlaybook,
+        recommendations: action.recommendations,
         activePlaybookVersion: action.result.newVersion,
       };
     case "SWAP_RECOMMENDATION": {

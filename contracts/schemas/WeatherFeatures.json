@@ -15,7 +15,8 @@
     "sprayWindowScore",
     "diseaseRiskScore",
     "heatStressScore",
-    "notes"
+    "notes",
+    "layers"
   ],
   "properties": {
     "weatherFeaturesId": {
@@ -77,6 +78,47 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "altitudeM",
+          "temperatureC",
+          "relativeHumidityPct",
+          "windSpeedKph",
+          "windDirectionDeg"
+        ],
+        "properties": {
+          "altitudeM": {
+            "type": "number",
+            "minimum": -500,
+            "maximum": 20000
+          },
+          "temperatureC": {
+            "type": "number",
+            "minimum": -80,
+            "maximum": 80
+          },
+          "relativeHumidityPct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "windSpeedKph": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 400
+          },
+          "windDirectionDeg": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 360
+          }
+        }
       }
     }
   }

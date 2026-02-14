@@ -15,7 +15,6 @@ export function Playbooks() {
   if (!playbook || !patch) return null;
 
   const rule = playbook.rules["rule_pm_moderate"];
-  const currentWind = rule?.constraints?.maxWindKph as number;
 
   async function handleApply() {
     setApplying(true);
@@ -29,7 +28,8 @@ export function Playbooks() {
     }
     setResult(res);
     const patched = await source.getPlaybook(res.playbookId, res.newVersion);
-    dispatch({ type: "PATCH_APPLIED", result: res, patchedPlaybook: patched });
+    const recommendations = await source.listRecommendations();
+    dispatch({ type: "PATCH_APPLIED", result: res, patchedPlaybook: patched, recommendations });
     setApplying(false);
   }
 

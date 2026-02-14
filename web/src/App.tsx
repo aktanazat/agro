@@ -1,7 +1,9 @@
 import { useEffect, useReducer, useState } from "react";
+import { createExtractionAdapter } from "fieldscout-ai-pipeline/pipeline";
 import { FixtureSource } from "./data/fixture-source";
 import { StoreContext, reducer, type AppState } from "./data/store";
 import type { DataSource } from "./data/datasource";
+import type { Observation } from "./data/types";
 import { Layout } from "./components/Layout";
 
 const fixtureSource = new FixtureSource();
@@ -48,7 +50,7 @@ export default function App() {
 }
 
 async function loadFixtures(source: DataSource) {
-  const [observations, recommendations, playbook, weather, patch, trace] =
+  const [fixtureObservations, recommendations, playbook, weather, patch, trace] =
     await Promise.all([
       source.listObservations(),
       source.listRecommendations(),
@@ -57,5 +59,47 @@ async function loadFixtures(source: DataSource) {
       source.getPatch("pch_20260211_0001"),
       source.getTrace("obs_20260211_0001"),
     ]);
+  const observations = await Promise.all(
+    fixtureObservations.map((observation) => hydrateObservationWithPipeline(observation)),
+  );
   return { observations, recommendations, playbook, weather, patches: [patch], trace };
+}
+
+async function hydrateObservationWithPipeline(observation: Observation): Promise<Observation> {
+  const adapter = createExtractionAdapter({
+    deviceId: observation.deviceId,
+    location: observation.location,
+  });
+  const source = observation.transcription.source;
+  const transcriptionSource =
+    source === "on_device_asr" || source === "manual_typed" || source === "none"
+      ? source
+      : "none";
+
+  const result = await adapter.extract({
+    observationId: observation.observationId,
+    captureMode: observation.captureMode,
+    rawNoteText: observation.rawNoteText,
+    transcription: {
+      text: observation.transcription.text,
+      source: transcriptionSource,
+      confidence: observation.transcription.confidence,
+    },
+  });
+
+  if (!result.ok) {
+    return observation;
+  }
+
+  return {
+    ...observation,
+    extraction: {
+      ...result.observation.extraction,
+      variety: result.observation.extraction.variety ?? null,
+    },
+    normalization: result.observation.normalization,
+    status: result.observation.status,
+    schemaVersion: result.observation.schemaVersion,
+    deterministicChecksum: result.observation.deterministicChecksum,
+  };
 }
