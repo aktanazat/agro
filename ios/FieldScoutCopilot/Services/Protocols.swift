@@ -1,9 +1,29 @@
 import Foundation
 
+// MARK: - Repository Protocols
+
 public protocol ObservationRepository {
     func saveObservation(_ observation: Observation) throws
     func fetchObservation(observationId: String) throws -> Observation?
     func listRecentObservations(deviceId: String, limit: Int) throws -> [Observation]
+}
+
+public protocol RecommendationRepository {
+    func saveRecommendation(_ recommendation: Recommendation) throws
+    func fetchRecommendation(recommendationId: String) throws -> Recommendation?
+    func listRecommendationsForObservation(observationId: String) throws -> [Recommendation]
+}
+
+// MARK: - Service Protocols
+
+public protocol ExtractionService {
+    func extractObservation(
+        from rawNoteText: String,
+        captureMode: CaptureMode,
+        transcription: ObservationTranscription,
+        deviceId: String,
+        location: GeoPoint
+    ) async throws -> Observation
 }
 
 public protocol RecommendationService {
@@ -31,9 +51,16 @@ public protocol WeatherFeaturesProvider {
         location: GeoPoint,
         atTime: String,
         providerToken: String
-    ) throws -> WeatherFeatures
+    ) async throws -> WeatherFeatures
 }
 
 public protocol SyncService {
-    func syncBatch(_ request: SyncBatchRequest, idempotencyKey: String) throws -> SyncBatchResponse
+    func syncBatch(_ request: SyncBatchRequest, idempotencyKey: String) async throws -> SyncBatchResponse
+}
+
+// MARK: - Adapter Protocols
+
+public protocol CactusAdapter {
+    func extractStructuredFields(from text: String) async throws -> ObservationExtraction
+    func transcribeAudio(from audioData: Data) async throws -> ObservationTranscription
 }

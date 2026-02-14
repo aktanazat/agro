@@ -1,6 +1,8 @@
 import Foundation
 
-public struct Device {
+// MARK: - Device
+
+public struct Device: Codable {
     public let deviceId: String
     public let platform: Platform
     public let appVersion: String
@@ -10,12 +12,14 @@ public struct Device {
     public let updatedAt: String
 }
 
-public enum Platform: String {
+public enum Platform: String, Codable {
     case ios
     case android
 }
 
-public struct Observation {
+// MARK: - Observation
+
+public struct Observation: Codable {
     public let observationId: String
     public let deviceId: String
     public let createdAt: String
@@ -30,30 +34,30 @@ public struct Observation {
     public let deterministicChecksum: String
 }
 
-public enum CaptureMode: String {
+public enum CaptureMode: String, Codable {
     case voice
     case typed
 }
 
-public enum ObservationStatus: String {
+public enum ObservationStatus: String, Codable {
     case draft
     case confirmed
     case logged
 }
 
-public struct ObservationTranscription {
+public struct ObservationTranscription: Codable {
     public let text: String
     public let source: TranscriptionSource
     public let confidence: Double
 }
 
-public enum TranscriptionSource: String {
+public enum TranscriptionSource: String, Codable {
     case onDeviceAsr = "on_device_asr"
     case manualTyped = "manual_typed"
     case none
 }
 
-public struct ObservationExtraction {
+public struct ObservationExtraction: Codable {
     public let crop: Crop
     public let variety: String?
     public let fieldBlock: String
@@ -63,41 +67,43 @@ public struct ObservationExtraction {
     public let observationTime: String
 }
 
-public enum Crop: String {
+public enum Crop: String, Codable {
     case grape
 }
 
-public enum Issue: String {
+public enum Issue: String, Codable {
     case powderyMildew = "powdery_mildew"
     case heatStress = "heat_stress"
     case other
 }
 
-public enum Severity: String {
+public enum Severity: String, Codable {
     case low
     case moderate
     case high
 }
 
-public struct ObservationNormalization {
+public struct ObservationNormalization: Codable {
     public let temperatureC: Double?
     public let leafWetness: LeafWetness
     public let windEstimateKph: Double
 }
 
-public enum LeafWetness: String {
+public enum LeafWetness: String, Codable {
     case dry
     case damp
     case wet
     case unknown
 }
 
-public struct GeoPoint {
+public struct GeoPoint: Codable {
     public let lat: Double
     public let lon: Double
 }
 
-public struct WeatherFeatures {
+// MARK: - WeatherFeatures
+
+public struct WeatherFeatures: Codable {
     public let weatherFeaturesId: String
     public let sourceMode: WeatherSourceMode
     public let profileTime: String
@@ -111,27 +117,29 @@ public struct WeatherFeatures {
     public let notes: [String]
 }
 
-public enum WeatherSourceMode: String {
+public enum WeatherSourceMode: String, Codable {
     case demo
     case live
     case none
 }
 
-public enum HumidityLayering: String {
+public enum HumidityLayering: String, Codable {
     case dryAloftHumidSurface = "dry_aloft_humid_surface"
     case uniformHumid = "uniform_humid"
     case uniformDry = "uniform_dry"
     case unknown
 }
 
-public enum WindShearProxy: String {
+public enum WindShearProxy: String, Codable {
     case low
     case moderate
     case high
     case unknown
 }
 
-public struct Recommendation {
+// MARK: - Recommendation
+
+public struct Recommendation: Codable {
     public let recommendationId: String
     public let observationId: String
     public let playbookId: String
@@ -148,7 +156,7 @@ public struct Recommendation {
     public let status: RecommendationStatus
 }
 
-public struct RecommendationTimingWindow {
+public struct RecommendationTimingWindow: Codable {
     public let startAt: String
     public let endAt: String
     public let localTimezone: String
@@ -156,20 +164,22 @@ public struct RecommendationTimingWindow {
     public let drivers: [String]
 }
 
-public enum RecommendationStatus: String {
+public enum RecommendationStatus: String, Codable {
     case pendingConfirmation = "pending_confirmation"
     case confirmed
     case rejected
 }
 
-public enum RiskFlag: String {
+public enum RiskFlag: String, Codable {
     case weatherDataMissing = "weather_data_missing"
     case highDriftRisk = "high_drift_risk"
     case lowConfidence = "low_confidence"
     case manualReviewRequired = "manual_review_required"
 }
 
-public struct Playbook {
+// MARK: - Playbook
+
+public struct Playbook: Codable {
     public let playbookId: String
     public let crop: PlaybookCrop
     public let region: PlaybookRegion
@@ -178,20 +188,25 @@ public struct Playbook {
     public let rules: PlaybookRules
 }
 
-public enum PlaybookCrop: String {
+public enum PlaybookCrop: String, Codable {
     case grape
 }
 
-public enum PlaybookRegion: String {
+public enum PlaybookRegion: String, Codable {
     case yoloCountyCa = "yolo_county_ca"
 }
 
-public struct PlaybookRules {
+public struct PlaybookRules: Codable {
     public let rulePmModerate: PlaybookRule
     public let ruleHeatModerate: PlaybookRule
+    
+    enum CodingKeys: String, CodingKey {
+        case rulePmModerate = "rule_pm_moderate"
+        case ruleHeatModerate = "rule_heat_moderate"
+    }
 }
 
-public struct PlaybookRule {
+public struct PlaybookRule: Codable {
     public let ruleId: String
     public let issue: RuleIssue
     public let severity: Severity
@@ -201,13 +216,13 @@ public struct PlaybookRule {
     public let editablePaths: [String]
 }
 
-public enum RuleIssue: String {
+public enum RuleIssue: String, Codable {
     case powderyMildew = "powdery_mildew"
     case heatStress = "heat_stress"
 }
 
-public struct RuleConstraints {
-    public let maxWindKph: Double
+public struct RuleConstraints: Codable {
+    public var maxWindKph: Double
     public let avoidInversion: Bool?
     public let maxRelativeHumidityPct: Double?
     public let minHoursWithoutRain: Double?
@@ -215,28 +230,28 @@ public struct RuleConstraints {
     public let irrigationWindowLocal: String?
 }
 
-public struct RuleAction {
+public struct RuleAction: Codable {
     public let type: ActionType
     public let instructions: String
 }
 
-public enum ActionType: String {
+public enum ActionType: String, Codable {
     case spray
     case irrigate
     case monitor
 }
 
-public struct RuleTiming {
+public struct RuleTiming: Codable {
     public let baseWindowHours: BaseWindowHours
     public let weatherAdjustments: [RuleWeatherAdjustment]
 }
 
-public struct BaseWindowHours {
+public struct BaseWindowHours: Codable {
     public let startOffsetHours: Double
     public let endOffsetHours: Double
 }
 
-public struct RuleWeatherAdjustment {
+public struct RuleWeatherAdjustment: Codable {
     public let feature: AdjustmentFeature
     public let condition: String
     public let shiftStartMinutes: Int
@@ -244,7 +259,7 @@ public struct RuleWeatherAdjustment {
     public let rationaleTag: String
 }
 
-public enum AdjustmentFeature: String {
+public enum AdjustmentFeature: String, Codable {
     case inversionPresent
     case humidityLayering
     case windShearProxy
@@ -253,7 +268,9 @@ public enum AdjustmentFeature: String {
     case heatStressScore
 }
 
-public struct PlaybookPatch {
+// MARK: - PlaybookPatch
+
+public struct PlaybookPatch: Codable {
     public let patchId: String
     public let playbookId: String
     public let baseVersion: Int
@@ -263,35 +280,68 @@ public struct PlaybookPatch {
     public let operations: [PlaybookPatchOperation]
 }
 
-public struct PlaybookPatchOperation {
+public struct PlaybookPatchOperation: Codable {
     public let op: PatchOp
     public let path: String
     public let value: JSONValue?
     public let justification: String?
 }
 
-public enum PatchOp: String {
+public enum PatchOp: String, Codable {
     case add
     case replace
     case remove
 }
 
-public enum JSONValue {
+public enum JSONValue: Codable {
     case string(String)
     case number(Double)
     case bool(Bool)
     case object([String: JSONValue])
     case array([JSONValue])
     case null
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let string = try? container.decode(String.self) {
+            self = .string(string)
+        } else if let number = try? container.decode(Double.self) {
+            self = .number(number)
+        } else if let bool = try? container.decode(Bool.self) {
+            self = .bool(bool)
+        } else if let object = try? container.decode([String: JSONValue].self) {
+            self = .object(object)
+        } else if let array = try? container.decode([JSONValue].self) {
+            self = .array(array)
+        } else if container.decodeNil() {
+            self = .null
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid JSON value")
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .bool(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .null: try container.encodeNil()
+        }
+    }
 }
 
-public struct ErrorEnvelope {
+// MARK: - Error
+
+public struct ErrorEnvelope: Codable {
     public let requestId: String
     public let timestamp: String
     public let error: ErrorBody
 }
 
-public struct ErrorBody {
+public struct ErrorBody: Codable {
     public let code: ErrorCode
     public let message: String
     public let retryable: Bool
@@ -299,7 +349,7 @@ public struct ErrorBody {
     public let details: [String: JSONValue]?
 }
 
-public enum ErrorCode: String {
+public enum ErrorCode: String, Codable {
     case validationError = "VALIDATION_ERROR"
     case authRequired = "AUTH_REQUIRED"
     case forbidden = "FORBIDDEN"
@@ -311,7 +361,9 @@ public enum ErrorCode: String {
     case internalError = "INTERNAL_ERROR"
 }
 
-public struct PatchApplyResult {
+// MARK: - Patch Result
+
+public struct PatchApplyResult: Codable {
     public let patchId: String
     public let playbookId: String
     public let oldVersion: Int
@@ -322,12 +374,14 @@ public struct PatchApplyResult {
     public let appliedAt: String
 }
 
-public enum PatchApplyStatus: String {
+public enum PatchApplyStatus: String, Codable {
     case applied
     case rejected
 }
 
-public struct SyncBatchRequest {
+// MARK: - Sync
+
+public struct SyncBatchRequest: Codable {
     public let syncId: String
     public let requestedAt: String
     public let device: Device
@@ -335,13 +389,13 @@ public struct SyncBatchRequest {
     public let upserts: SyncUpserts
 }
 
-public struct SyncUpserts {
+public struct SyncUpserts: Codable {
     public let observations: [Observation]
     public let recommendations: [Recommendation]
     public let playbookPatches: [PlaybookPatch]
 }
 
-public struct SyncBatchResponse {
+public struct SyncBatchResponse: Codable {
     public let syncId: String
     public let acceptedAt: String
     public let serverCursor: String
@@ -350,32 +404,32 @@ public struct SyncBatchResponse {
     public let downstream: SyncDownstream
 }
 
-public struct AcceptedCounts {
+public struct AcceptedCounts: Codable {
     public let observations: Int
     public let recommendations: Int
     public let playbookPatches: Int
 }
 
-public struct SyncConflict {
+public struct SyncConflict: Codable {
     public let entityType: SyncEntityType
     public let entityId: String
     public let code: String
     public let message: String
 }
 
-public enum SyncEntityType: String {
+public enum SyncEntityType: String, Codable {
     case observation
     case recommendation
     case playbookPatch
 }
 
-public struct SyncDownstream {
+public struct SyncDownstream: Codable {
     public let playbook: SyncPlaybookVersion
     public let observations: [Observation]
     public let recommendations: [Recommendation]
 }
 
-public struct SyncPlaybookVersion {
+public struct SyncPlaybookVersion: Codable {
     public let playbookId: String
     public let version: Int
     public let updatedAt: String

@@ -23,7 +23,7 @@ Turn a field worker's voice note into structured scouting data and a time-bounde
 - Optional sync choreography: `docs/08_backend_sync.md`
 
 MVP tool choices are locked to keep delivery speed high:
-- Mobile: React Native (iOS-first target)
+- Mobile: Native Swift/SwiftUI (iOS)
 - On-device inference: Cactus SDK with quantized runtime
 - Weather seam: Demo JSON by default, optional Synoptic Live Mode
 - Fast apply seam: local bounded patch engine, optional Morph API assist
