@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-slate-800;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Scrollbar styling for inspector panes */
+.inspector-json::-webkit-scrollbar { width: 6px; height: 6px; }
+.inspector-json::-webkit-scrollbar-track { background: transparent; }
+.inspector-json::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }

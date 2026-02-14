@@ -1,0 +1,26 @@
+{
+  "recommendationId": "rec_20260211_0002",
+  "observationId": "obs_20260211_0001",
+  "playbookId": "pbk_yolo_grape",
+  "playbookVersion": 4,
+  "weatherFeaturesId": "wxf_20260211_demo_01",
+  "generatedAt": "2026-02-11T18:21:44Z",
+  "issue": "powdery_mildew",
+  "severity": "moderate",
+  "action": "Apply sulfur-based contact spray in affected block.",
+  "rationale": ["avoid_inversion", "high_humidity_persistence", "tighter_wind_constraint"],
+  "timingWindow": {
+    "startAt": "2026-02-11T21:15:00-08:00",
+    "endAt": "2026-02-11T23:30:00-08:00",
+    "localTimezone": "America/Los_Angeles",
+    "confidence": 0.79,
+    "drivers": [
+      "maxWindKph=10",
+      "inversionPresent=false",
+      "windShearProxy=moderate"
+    ]
+  },
+  "riskFlags": [],
+  "requiredConfirmation": true,
+  "status": "pending_confirmation"
+}
