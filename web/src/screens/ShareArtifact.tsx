@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "../data/store";
+import { buildSharePayload, buildShareSummary } from "fieldscout-ai-pipeline/share-payload";
 
 export function ShareArtifact() {
   const { state } = useStore();
@@ -12,7 +13,9 @@ export function ShareArtifact() {
     return <div className="p-6 text-sm text-slate-400">No data to share.</div>;
   }
 
-  const summary = buildSummary(obs, rec, state.weather?.sourceMode ?? "demo");
+  const weatherMode = state.weather?.sourceMode ?? "demo";
+  const summary = buildShareSummary(obs, rec, weatherMode);
+  const sharePayload = buildSharePayload(obs, rec, weatherMode);
   const consoleUrl = `${window.location.origin}/#obs=${obs.observationId}`;
 
   function handleCopy() {
@@ -139,7 +142,7 @@ export function ShareArtifact() {
           </h3>
         </div>
         <pre className="inspector-json flex-1 overflow-auto p-4 text-xs font-mono text-slate-600 whitespace-pre-wrap break-all">
-          {JSON.stringify({ observation: obs, recommendation: rec }, null, 2)}
+          {JSON.stringify(sharePayload, null, 2)}
         </pre>
       </div>
     </div>
@@ -155,28 +158,3 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildSummary(
-  obs: { observationId: string; deviceId: string; createdAt: string; captureMode: string;
-    extraction: { crop: string; variety: string | null; fieldBlock: string; issue: string; severity: string; symptoms: string[] };
-    normalization: { leafWetness: string; windEstimateKph: number } },
-  rec: { recommendationId: string; playbookVersion: number; action: string;
-    timingWindow: { startAt: string; endAt: string; confidence: number } },
-  weatherMode: string,
-): string {
-  return [
-    `FieldScout Copilot — Visit Summary`,
-    `${obs.extraction.fieldBlock} ${obs.extraction.variety ?? obs.extraction.crop} · ${obs.createdAt}`,
-    ``,
-    `Issue: ${obs.extraction.issue.replace(/_/g, " ")} (${obs.extraction.severity})`,
-    `Symptoms: ${obs.extraction.symptoms.join(", ")}`,
-    `Leaf wetness: ${obs.normalization.leafWetness} | Wind: ${obs.normalization.windEstimateKph} kph`,
-    ``,
-    `Recommendation: ${rec.action}`,
-    `Window: ${rec.timingWindow.startAt} to ${rec.timingWindow.endAt}`,
-    `Confidence: ${Math.round(rec.timingWindow.confidence * 100)}%`,
-    ``,
-    `Playbook: pbk_yolo_grape v${rec.playbookVersion} | Weather: ${weatherMode}`,
-    `IDs: ${obs.observationId} / ${rec.recommendationId}`,
-    `Device: ${obs.deviceId} | Mode: offline`,
-  ].join("\n");
-}
