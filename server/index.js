@@ -3,7 +3,6 @@ const { createHash, randomUUID } = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 const { existsSync, mkdirSync, readFileSync } = require("node:fs");
 const path = require("node:path");
-const { DatabaseSync } = require("node:sqlite");
 
 const API_VERSION = "1.0.0";
 const DEFAULT_PORT = 8787;
@@ -310,6 +309,7 @@ server.listen(PORT, () => {
 
 function createDatabaseAdapter() {
   if (!SQLITECLOUD_URL) {
+    const { DatabaseSync } = require("node:sqlite");
     mkdirSync(path.dirname(DB_PATH), { recursive: true });
     const localDb = new DatabaseSync(DB_PATH);
     localDb.exec("PRAGMA journal_mode = WAL;");
