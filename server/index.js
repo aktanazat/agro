@@ -1,5 +1,6 @@
 const { createServer } = require("node:http");
 const { createHash, randomUUID } = require("node:crypto");
+const { spawnSync } = require("node:child_process");
 const { existsSync, mkdirSync, readFileSync } = require("node:fs");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
@@ -8,16 +9,17 @@ const API_VERSION = "1.0.0";
 const DEFAULT_PORT = 8787;
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DB_PATH = process.env.FIELD_SCOUT_DB_PATH ?? path.join(PROJECT_ROOT, ".data", "fieldscout.sqlite");
+const SQLITECLOUD_URL = process.env.FIELD_SCOUT_SQLITECLOUD_URL ?? "";
+const SQLITECLOUD_PYTHON =
+  process.env.FIELD_SCOUT_SQLITECLOUD_PYTHON ?? path.join(PROJECT_ROOT, ".venv_sqlitecloud", "bin", "python");
+const SQLITECLOUD_BRIDGE = path.join(__dirname, "sqlitecloud_bridge.py");
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
 const REQUIRE_AUTH = process.env.FIELD_SCOUT_REQUIRE_AUTH === "true";
 const API_KEY = process.env.FIELD_SCOUT_API_KEY ?? "";
 const API_KEY_HEADER = (process.env.FIELD_SCOUT_API_KEY_HEADER ?? "x-api-key").toLowerCase();
 const API_KEY_PREFIX = process.env.FIELD_SCOUT_API_KEY_PREFIX ?? "";
 
-mkdirSync(path.dirname(DB_PATH), { recursive: true });
-
-const db = new DatabaseSync(DB_PATH);
-db.exec("PRAGMA journal_mode = WAL;");
+const db = createDatabaseAdapter();
 
 initializeSchema();
 seedFixtures();
@@ -299,8 +301,89 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`FieldScout API listening on http://localhost:${PORT}`);
-  console.log(`SQLite database: ${DB_PATH}`);
+  if (db.type === "sqlitecloud") {
+    console.log(`SQLiteCloud database: ${redactApiKey(SQLITECLOUD_URL)}`);
+  } else {
+    console.log(`SQLite database: ${DB_PATH}`);
+  }
 });
+
+function createDatabaseAdapter() {
+  if (!SQLITECLOUD_URL) {
+    mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    const localDb = new DatabaseSync(DB_PATH);
+    localDb.exec("PRAGMA journal_mode = WAL;");
+    return {
+      type: "local",
+      exec(sql) {
+        return localDb.exec(sql);
+      },
+      prepare(sql) {
+        return localDb.prepare(sql);
+      },
+    };
+  }
+
+  if (!existsSync(SQLITECLOUD_PYTHON)) {
+    throw new Error(
+      `SQLiteCloud mode enabled but Python runtime not found at ${SQLITECLOUD_PYTHON}.`,
+    );
+  }
+  if (!existsSync(SQLITECLOUD_BRIDGE)) {
+    throw new Error(
+      `SQLiteCloud mode enabled but bridge script not found at ${SQLITECLOUD_BRIDGE}.`,
+    );
+  }
+
+  function callBridge(payload) {
+    const proc = spawnSync(SQLITECLOUD_PYTHON, [SQLITECLOUD_BRIDGE], {
+      input: JSON.stringify({ ...payload, url: SQLITECLOUD_URL }),
+      encoding: "utf8",
+    });
+    if (proc.error) {
+      throw proc.error;
+    }
+    if (proc.status !== 0) {
+      const stderr = (proc.stderr ?? "").trim();
+      const stdout = (proc.stdout ?? "").trim();
+      throw new Error(`SQLiteCloud bridge failed: ${stderr || stdout || "unknown error"}`);
+    }
+
+    const response = JSON.parse((proc.stdout ?? "").trim() || "{}");
+    if (!response.ok) {
+      throw new Error(response.error ?? "SQLiteCloud bridge returned error.");
+    }
+    return response;
+  }
+
+  return {
+    type: "sqlitecloud",
+    exec(sql) {
+      callBridge({ op: "exec", sql });
+      return undefined;
+    },
+    prepare(sql) {
+      return {
+        run(...params) {
+          const result = callBridge({ op: "run", sql, params });
+          return { changes: result.rowcount ?? 0 };
+        },
+        get(...params) {
+          const result = callBridge({ op: "get", sql, params });
+          return result.row ?? undefined;
+        },
+        all(...params) {
+          const result = callBridge({ op: "all", sql, params });
+          return result.rows ?? [];
+        },
+      };
+    },
+  };
+}
+
+function redactApiKey(url) {
+  return url.replace(/(apikey=)[^&]+/i, "$1***");
+}
 
 function initializeSchema() {
   db.exec(`
