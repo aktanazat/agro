@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-02-11T18:00:00Z",
+  "files": [
+    { "type": "observation", "id": "obs_20260211_0001", "file": "observation_obs_20260211_0001.json" },
+    { "type": "recommendation", "id": "rec_20260211_0001", "file": "recommendation_rec_20260211_0001.json" },
+    { "type": "recommendation", "id": "rec_20260211_0002", "file": "recommendation_rec_20260211_0002.json" },
+    { "type": "playbook", "id": "pbk_yolo_grape", "version": 3, "file": "playbook_pbk_yolo_grape_v3.json" },
+    { "type": "weatherfeatures", "id": "wxf_20260211_demo_01", "file": "weatherfeatures_wxf_20260211_demo_01.json" },
+    { "type": "playbookpatch", "id": "pch_20260211_0001", "file": "playbookpatch_pch_20260211_0001.json" },
+    { "type": "trace", "id": "trace_obs_20260211_0001", "file": "trace_obs_20260211_0001.json" }
+  ]
+}

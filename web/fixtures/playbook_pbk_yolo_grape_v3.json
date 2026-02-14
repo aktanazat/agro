@@ -1,0 +1,86 @@
+{
+  "playbookId": "pbk_yolo_grape",
+  "crop": "grape",
+  "region": "yolo_county_ca",
+  "version": 3,
+  "updatedAt": "2026-02-11T12:00:00Z",
+  "rules": {
+    "rule_pm_moderate": {
+      "ruleId": "rule_pm_moderate",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "constraints": {
+        "maxWindKph": 12,
+        "avoidInversion": true,
+        "maxRelativeHumidityPct": 85,
+        "minHoursWithoutRain": 4
+      },
+      "action": {
+        "type": "spray",
+        "instructions": "Apply sulfur-based contact spray in affected block."
+      },
+      "timing": {
+        "baseWindowHours": { "startOffsetHours": 2, "endOffsetHours": 6 },
+        "weatherAdjustments": [
+          {
+            "feature": "inversionPresent",
+            "condition": "true",
+            "shiftStartMinutes": 120,
+            "shiftEndMinutes": -60,
+            "rationaleTag": "avoid_inversion"
+          },
+          {
+            "feature": "humidityLayering",
+            "condition": "uniform_humid",
+            "shiftStartMinutes": 0,
+            "shiftEndMinutes": -90,
+            "rationaleTag": "high_humidity_persistence"
+          },
+          {
+            "feature": "windShearProxy",
+            "condition": "high",
+            "shiftStartMinutes": 0,
+            "shiftEndMinutes": -60,
+            "rationaleTag": "spray_drift_risk"
+          }
+        ]
+      },
+      "editablePaths": [
+        "/rules/rule_pm_moderate/constraints/maxWindKph",
+        "/rules/rule_pm_moderate/action/instructions",
+        "/rules/rule_pm_moderate/timing/baseWindowHours"
+      ]
+    },
+    "rule_heat_moderate": {
+      "ruleId": "rule_heat_moderate",
+      "issue": "heat_stress",
+      "severity": "moderate",
+      "constraints": {
+        "maxWindKph": 15,
+        "maxTemperatureC": 35,
+        "irrigationWindowLocal": "04:30-07:00"
+      },
+      "action": {
+        "type": "irrigate",
+        "instructions": "Schedule short-cycle irrigation and canopy cooling check."
+      },
+      "timing": {
+        "baseWindowHours": { "startOffsetHours": 10, "endOffsetHours": 14 },
+        "weatherAdjustments": [
+          {
+            "feature": "heatStressScore",
+            "condition": "> 0.7",
+            "shiftStartMinutes": -60,
+            "shiftEndMinutes": 0,
+            "rationaleTag": "high_heat_stress"
+          }
+        ]
+      },
+      "editablePaths": [
+        "/rules/rule_heat_moderate/constraints/maxWindKph",
+        "/rules/rule_heat_moderate/constraints/maxTemperatureC",
+        "/rules/rule_heat_moderate/action/instructions"
+      ]
+    }
+  }
+}

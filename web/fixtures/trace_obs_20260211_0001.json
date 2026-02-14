@@ -1,0 +1,26 @@
+{
+  "traceId": "trace_obs_20260211_0001",
+  "observationId": "obs_20260211_0001",
+  "deviceId": "dev_ios_001",
+  "startedAt": "2026-02-11T18:20:30Z",
+  "completedAt": "2026-02-11T18:21:48Z",
+  "totalDurationMs": 78000,
+  "stages": [
+    { "stage": "capture_start", "startedAt": "2026-02-11T18:20:30Z", "endedAt": "2026-02-11T18:20:35Z", "durationMs": 5000, "status": "completed" },
+    { "stage": "recording", "startedAt": "2026-02-11T18:20:35Z", "endedAt": "2026-02-11T18:20:52Z", "durationMs": 17000, "status": "completed" },
+    { "stage": "transcribing", "startedAt": "2026-02-11T18:20:52Z", "endedAt": "2026-02-11T18:20:58Z", "durationMs": 6000, "status": "completed" },
+    { "stage": "extracting", "startedAt": "2026-02-11T18:20:58Z", "endedAt": "2026-02-11T18:21:12Z", "durationMs": 14000, "status": "completed" },
+    { "stage": "recommending", "startedAt": "2026-02-11T18:21:12Z", "endedAt": "2026-02-11T18:21:18Z", "durationMs": 6000, "status": "completed" },
+    { "stage": "confirmation", "startedAt": "2026-02-11T18:21:18Z", "endedAt": "2026-02-11T18:21:32Z", "durationMs": 14000, "status": "completed" },
+    { "stage": "logged", "startedAt": "2026-02-11T18:21:32Z", "endedAt": "2026-02-11T18:21:40Z", "durationMs": 8000, "status": "completed" },
+    { "stage": "patch_apply", "startedAt": "2026-02-11T18:21:40Z", "endedAt": "2026-02-11T18:21:44Z", "durationMs": 4000, "status": "completed" },
+    { "stage": "recompute", "startedAt": "2026-02-11T18:21:44Z", "endedAt": "2026-02-11T18:21:48Z", "durationMs": 4000, "status": "completed" }
+  ],
+  "thresholds": [
+    { "label": "Record → Transcript", "maxMs": 8000, "actualMs": 6000 },
+    { "label": "Transcript → Observation", "maxMs": 15000, "actualMs": 14000 },
+    { "label": "Recommendation", "maxMs": 5000, "actualMs": 6000 },
+    { "label": "Patch + Recompute", "maxMs": 4000, "actualMs": 4000 },
+    { "label": "Full Loop", "maxMs": 90000, "actualMs": 78000 }
+  ]
+}
