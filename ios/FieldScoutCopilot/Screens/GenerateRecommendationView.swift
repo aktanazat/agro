@@ -199,6 +199,11 @@ struct GenerateRecommendationView: View {
             schemaVersion: "1.0.0",
             deterministicChecksum: "sha256:A1B2C3D4E5F6"
         )
+        appState.recordTraceStage(
+            stage: "extracting",
+            durationMs: 14000,
+            relatedObservationId: observation?.observationId
+        )
         
         currentStep = .recommending
         
@@ -267,13 +272,52 @@ struct GenerateRecommendationView: View {
         )
         
         currentStep = .ready
-        appState.currentRecommendation = recommendation
+        if let observation, let recommendation {
+            appState.stageRecommendation(observation: observation, recommendation: recommendation)
+            appState.recordTraceStage(
+                stage: "recommending",
+                durationMs: 6000,
+                relatedObservationId: observation.observationId,
+                relatedRecommendationId: recommendation.recommendationId
+            )
+        }
     }
     
     private func confirmRecommendation() {
+        guard let observation, let recommendation else { return }
+        let confirmedRecommendation = recommendationWithStatus(recommendation, status: .confirmed)
+        self.recommendation = confirmedRecommendation
         currentStep = .confirmed
         appState.observationFlowState = .confirmed
-        appState.currentObservation = observation
+        appState.recordTraceStage(
+            stage: "confirmation",
+            durationMs: 14000,
+            relatedObservationId: observation.observationId,
+            relatedRecommendationId: confirmedRecommendation.recommendationId
+        )
+        appState.confirmAndLog(observation: observation, recommendation: confirmedRecommendation)
+    }
+
+    private func recommendationWithStatus(
+        _ recommendation: Recommendation,
+        status: RecommendationStatus
+    ) -> Recommendation {
+        Recommendation(
+            recommendationId: recommendation.recommendationId,
+            observationId: recommendation.observationId,
+            playbookId: recommendation.playbookId,
+            playbookVersion: recommendation.playbookVersion,
+            weatherFeaturesId: recommendation.weatherFeaturesId,
+            generatedAt: recommendation.generatedAt,
+            issue: recommendation.issue,
+            severity: recommendation.severity,
+            action: recommendation.action,
+            rationale: recommendation.rationale,
+            timingWindow: recommendation.timingWindow,
+            riskFlags: recommendation.riskFlags,
+            requiredConfirmation: recommendation.requiredConfirmation,
+            status: status
+        )
     }
 }
 
