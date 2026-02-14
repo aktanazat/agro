@@ -5,4 +5,6 @@ export { extractFromText } from "./extractor";
 export { evaluateGating } from "./gating";
 export { PipelineTracer } from "./tracer";
 export { computeChecksum } from "./checksum";
+export { CactusStub, tryExtractWithCactus, buildSchemaPrompt, CACTUS_CONSTRAINTS } from "./cactus-stub";
+export type { CactusRuntime, CactusConfig } from "./cactus-stub";
 export * from "./types";
