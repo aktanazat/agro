@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "api": "node server/index.js",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "test": "vitest run",

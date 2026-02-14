@@ -153,6 +153,64 @@ class WeatherServiceImpl: WeatherFeaturesProvider {
     }
 }
 
+/// HTTP-backed sync service for pushing local queue items to /v1/sync/batch
+class SyncServiceImpl: SyncService {
+    private let baseURL: URL
+    private let deviceToken: String
+    private let session: URLSession
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    init(
+        baseURL: URL? = nil,
+        deviceToken: String = ProcessInfo.processInfo.environment["FIELD_SCOUT_DEVICE_TOKEN"] ?? "",
+        session: URLSession = .shared
+    ) {
+        if let baseURL {
+            self.baseURL = baseURL
+        } else if let envBaseURL = ProcessInfo.processInfo.environment["FIELD_SCOUT_API_BASE_URL"],
+                  let parsedBaseURL = URL(string: envBaseURL) {
+            self.baseURL = parsedBaseURL
+        } else {
+            self.baseURL = URL(string: "http://127.0.0.1:8787/v1")!
+        }
+        self.deviceToken = deviceToken
+        self.session = session
+    }
+
+    func syncBatch(_ requestBody: SyncBatchRequest, idempotencyKey: String) async throws -> SyncBatchResponse {
+        let endpoint = baseURL.appendingPathComponent("sync/batch")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        if !deviceToken.isEmpty {
+            request.setValue(deviceToken, forHTTPHeaderField: "X-Device-Token")
+        }
+        request.httpBody = try encoder.encode(requestBody)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SyncServiceError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            if let envelope = try? decoder.decode(ErrorEnvelope.self, from: data) {
+                throw SyncServiceError.httpStatus(httpResponse.statusCode, envelope.error.message)
+            }
+            let message = String(data: data, encoding: .utf8) ?? "Sync request failed."
+            throw SyncServiceError.httpStatus(httpResponse.statusCode, message)
+        }
+
+        return try decoder.decode(SyncBatchResponse.self, from: data)
+    }
+}
+
+enum SyncServiceError: Error {
+    case invalidResponse
+    case httpStatus(Int, String)
+}
+
 /// Vertical layer data from weather profile
 struct VerticalLayer {
     let altitudeM: Double

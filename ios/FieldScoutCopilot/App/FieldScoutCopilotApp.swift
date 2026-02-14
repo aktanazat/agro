@@ -15,10 +15,14 @@ struct FieldScoutCopilotApp: App {
 @MainActor
 class AppState: ObservableObject {
     private let store = LocalStore.shared
+    private let syncService: SyncService = SyncServiceImpl()
     private let playbookVersionDefaultsKey = "FieldScoutCopilot.ActivePlaybookVersion"
+    private let syncCursorDefaultsKey = "FieldScoutCopilot.ServerCursor"
+    private let lastSyncAtDefaultsKey = "FieldScoutCopilot.LastSyncAt"
     private let fallbackTraceId = "trace_obs_20260211_0001"
+    private var isSyncInFlight = false
 
-    @Published var isOfflineMode: Bool = true
+    @Published var isOfflineMode: Bool = ProcessInfo.processInfo.environment["FIELD_SCOUT_OFFLINE_MODE"] == "true"
     @Published var deviceId: String = "dev_ios_001"
     @Published var activePlaybookVersion: Int = 3 {
         didSet {
@@ -38,6 +42,7 @@ class AppState: ObservableObject {
             activePlaybookVersion = persistedVersion
         }
         hydrateFromLocalStore()
+        triggerSyncIfNeeded()
     }
 
     func stageRecommendation(observation: Observation, recommendation: Recommendation) {
@@ -45,6 +50,7 @@ class AppState: ObservableObject {
         currentRecommendation = recommendation
         store.saveObservation(observationWithStatus(observation, status: .confirmed))
         store.saveRecommendation(recommendation)
+        triggerSyncIfNeeded()
     }
 
     func confirmAndLog(observation: Observation, recommendation: Recommendation) {
@@ -58,6 +64,8 @@ class AppState: ObservableObject {
         currentRecommendation = confirmedRecommendation
         observationFlowState = .logged
 
+        triggerSyncIfNeeded()
+
         recordTraceStage(
             stage: "logged",
             durationMs: 2000,
@@ -70,6 +78,7 @@ class AppState: ObservableObject {
         currentRecommendation = recommendation
         activePlaybookVersion = recommendation.playbookVersion
         store.saveRecommendation(recommendation)
+        triggerSyncIfNeeded()
         recordTraceStage(
             stage: "recompute",
             durationMs: 2000,
@@ -126,6 +135,93 @@ class AppState: ObservableObject {
         }
 
         return store.listTraceEvents(traceId: traceId)
+    }
+
+    private func triggerSyncIfNeeded() {
+        guard !isOfflineMode else { return }
+        guard !isSyncInFlight else { return }
+
+        let pendingItems = store.pendingSyncItems()
+        guard !pendingItems.isEmpty else { return }
+        guard let request = makeSyncRequest(from: pendingItems) else { return }
+
+        isSyncInFlight = true
+        Task {
+            do {
+                let response = try await syncService.syncBatch(request, idempotencyKey: request.syncId)
+                await MainActor.run {
+                    pendingItems.forEach { store.markSynced(entityId: $0.entityId) }
+                    UserDefaults.standard.set(response.serverCursor, forKey: syncCursorDefaultsKey)
+                    UserDefaults.standard.set(response.acceptedAt, forKey: lastSyncAtDefaultsKey)
+                    isSyncInFlight = false
+                }
+            } catch {
+                await MainActor.run {
+                    isSyncInFlight = false
+                }
+            }
+        }
+    }
+
+    private func makeSyncRequest(from items: [SyncQueueItem]) -> SyncBatchRequest? {
+        var observations: [Observation] = []
+        var recommendations: [Recommendation] = []
+
+        for item in items {
+            switch item.entityType {
+            case .observation:
+                if let observation = store.fetchObservation(observationId: item.entityId) {
+                    observations.append(observation)
+                }
+            case .recommendation:
+                if let recommendation = store.fetchRecommendation(recommendationId: item.entityId) {
+                    recommendations.append(recommendation)
+                }
+            case .playbookPatch:
+                continue
+            }
+        }
+
+        if observations.isEmpty && recommendations.isEmpty {
+            return nil
+        }
+
+        let requestedAt = ISO8601DateFormatter().string(from: Date())
+        let cursor = UserDefaults.standard.string(forKey: syncCursorDefaultsKey) ?? "cur_20260211_0000"
+        let lastSyncAt = UserDefaults.standard.string(forKey: lastSyncAtDefaultsKey)
+        let device = Device(
+            deviceId: deviceId,
+            platform: .ios,
+            appVersion: appVersionString(),
+            modelPackageVersion: "q4_2026_02",
+            offlineModeEnabled: isOfflineMode,
+            lastSyncAt: lastSyncAt,
+            updatedAt: requestedAt
+        )
+
+        return SyncBatchRequest(
+            syncId: generateSyncId(),
+            requestedAt: requestedAt,
+            device: device,
+            lastKnownServerCursor: cursor,
+            upserts: SyncUpserts(
+                observations: observations,
+                recommendations: recommendations,
+                playbookPatches: []
+            )
+        )
+    }
+
+    private func generateSyncId() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let date = formatter.string(from: Date())
+        let sequence = String(format: "%04d", Int(Date().timeIntervalSince1970) % 10000)
+        return "sync_\(date)_\(sequence)"
+    }
+
+    private func appVersionString() -> String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
     }
 
     func recordTraceStage(

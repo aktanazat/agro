@@ -43,6 +43,10 @@ export class LiveSource implements DataSource {
     return headers;
   }
 
+  private idempotencyKey(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
   private async get<T>(path: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       headers: this.requestHeaders(),
@@ -65,7 +69,10 @@ export class LiveSource implements DataSource {
   async applyPatch(patch: PlaybookPatch): Promise<PatchApplyResult> {
     const res = await fetch(`${this.baseUrl}/playbooks/${patch.playbookId}/patches`, {
       method: "POST",
-      headers: this.requestHeaders({ "Content-Type": "application/json" }),
+      headers: this.requestHeaders({
+        "Content-Type": "application/json",
+        "Idempotency-Key": this.idempotencyKey(`patch-${patch.patchId}`),
+      }),
       body: JSON.stringify(patch),
     });
     if (!res.ok) throw new Error(`LiveSource: ${res.status} ${res.statusText}`);
