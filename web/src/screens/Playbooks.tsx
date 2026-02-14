@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useStore } from "../data/store";
-import { FixtureSource } from "../data/fixture-source";
 import type { PatchApplyResult } from "../data/types";
 
 export function Playbooks() {
@@ -19,7 +18,7 @@ export function Playbooks() {
   async function handleApply() {
     setApplying(true);
     setError(null);
-    const source = state.source as FixtureSource;
+    const source = state.source;
     const res = await source.applyPatch(patch);
     if (res.status === "rejected") {
       setError(res.validationErrors.join("; "));

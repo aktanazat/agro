@@ -1,17 +1,21 @@
 import { useEffect, useReducer, useState } from "react";
 import { createExtractionAdapter } from "fieldscout-ai-pipeline/pipeline";
 import { FixtureSource } from "./data/fixture-source";
+import { LiveSource } from "./data/live-source";
 import { StoreContext, reducer, type AppState } from "./data/store";
 import type { DataSource } from "./data/datasource";
 import type { Observation } from "./data/types";
 import { Layout } from "./components/Layout";
 
 const fixtureSource = new FixtureSource();
+const liveSource = new LiveSource();
+const prefersLive = import.meta.env.VITE_USE_LIVE_SOURCE === "true";
+const initialSource: DataSource = prefersLive ? liveSource : fixtureSource;
 
 const initialState: AppState = {
-  source: fixtureSource,
-  liveMode: false,
-  weatherMode: "demo",
+  source: initialSource,
+  liveMode: prefersLive,
+  weatherMode: prefersLive ? "live" : "demo",
   observations: [],
   recommendations: [],
   playbook: null,
@@ -28,10 +32,29 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadFixtures(fixtureSource).then((data) => {
-      dispatch({ type: "SET_DATA", ...data });
-      setLoading(false);
-    });
+    let cancelled = false;
+    loadFixtures(initialSource)
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        dispatch({ type: "SET_DATA", ...data });
+        setLoading(false);
+      })
+      .catch(() => {
+        loadFixtures(fixtureSource).then((data) => {
+          if (cancelled) {
+            return;
+          }
+          dispatch({ type: "SET_SOURCE", source: fixtureSource, liveMode: false });
+          dispatch({ type: "SET_DATA", ...data });
+          setLoading(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
