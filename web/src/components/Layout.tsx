@@ -38,7 +38,7 @@ export function Layout() {
   return (
     <div className="h-screen flex overflow-hidden">
       {/* Sidebar */}
-      <nav className="w-52 shrink-0 bg-slate-900 text-slate-300 flex flex-col">
+      <nav className="w-56 shrink-0 bg-slate-900 text-slate-300 flex flex-col">
         <div className="px-4 py-5 border-b border-slate-700">
           <h1 className="text-sm font-semibold text-white tracking-wide">
             FieldScout Copilot
@@ -73,9 +73,9 @@ export function Layout() {
           <StatusRow label="Playbook" value={`v${pipelineStatus.activePlaybookVersion}`} />
           <StatusRow label="Offline" value={pipelineStatus.offlineMode ? "true" : "false"} />
           <StatusRow label="Inference">
-            <span className="inline-flex items-center gap-1 font-mono text-slate-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              {formatInferenceLabel(pipelineStatus.inferenceMode)} (trace)
+            <span className="inline-flex flex-wrap justify-end items-center gap-x-1 gap-y-0.5 font-mono text-slate-400 leading-tight">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+              <span>{formatInferenceLabel(pipelineStatus.inferenceMode)} (trace)</span>
             </span>
           </StatusRow>
           <StatusRow label="Device" value={pipelineStatus.deviceId} />
@@ -114,9 +114,15 @@ function StatusRow({ label, value, children }: {
   label: string; value?: string; children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-500">{label}</span>
-      {children ?? <span className="font-mono text-slate-400">{value}</span>}
+    <div className="flex items-start justify-between gap-2">
+      <span className="text-slate-500 shrink-0 pt-0.5">{label}</span>
+      {children ? (
+        <div className="max-w-[9rem] text-right leading-tight">{children}</div>
+      ) : (
+        <span className="font-mono text-slate-400 text-right leading-tight max-w-[9rem] break-words">
+          {value}
+        </span>
+      )}
     </div>
   );
 }
