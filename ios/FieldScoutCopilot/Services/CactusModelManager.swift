@@ -18,7 +18,7 @@ actor CactusModelManager {
     func loadModels() async {
         state = .loading
         do {
-            let modelURL = try await CactusModelsDirectory.shared.modelURL(for: "qwen3-0.6b")
+            let modelURL = try await CactusModelsDirectory.shared.modelURL(for: "qwen3-0.6")
             languageModel = try CactusLanguageModel(from: modelURL)
             state = .ready
         } catch {

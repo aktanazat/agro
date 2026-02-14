@@ -71,7 +71,9 @@ class AppState: ObservableObject {
         triggerSyncIfNeeded()
     }
 
-    /// Kicks off model loading and updates published state when done.
+    /// Downloads and loads the Cactus model at launch.
+    /// While loading, the app still works — extraction and recommendation fall back
+    /// to the keyword parser and deterministic engine until the model is ready.
     func loadCactusModel() async {
         await cactusModelManager.loadModels()
         let state = await cactusModelManager.state
