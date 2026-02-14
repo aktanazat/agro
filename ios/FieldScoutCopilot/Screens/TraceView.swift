@@ -3,6 +3,7 @@ import SwiftUI
 struct TraceView: View {
     @EnvironmentObject var appState: AppState
     
+    @State private var traceId: String = "trace_obs_20260211_0001"
     @State private var traceEvents: [TraceEvent] = []
     @State private var totalDurationMs: Int = 0
     
@@ -13,7 +14,7 @@ struct TraceView: View {
                 HStack {
                     Text("Trace ID")
                     Spacer()
-                    Text("trace_20260211_demo_01")
+                    Text(traceId)
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(.secondary)
                 }
@@ -66,31 +67,26 @@ struct TraceView: View {
             }
         }
         .onAppear {
-            loadDemoTrace()
+            loadTrace()
         }
     }
     
-    private func loadDemoTrace() {
-        // Demo trace data matching the 90-second script
-        let baseTime = Date()
-        
-        traceEvents = [
-            TraceEvent(stage: "capture_start", startedAt: baseTime, endedAt: baseTime.addingTimeInterval(5), status: .completed),
-            TraceEvent(stage: "recording", startedAt: baseTime.addingTimeInterval(5), endedAt: baseTime.addingTimeInterval(22), status: .completed),
-            TraceEvent(stage: "transcribing", startedAt: baseTime.addingTimeInterval(22), endedAt: baseTime.addingTimeInterval(28), status: .completed),
-            TraceEvent(stage: "extracting", startedAt: baseTime.addingTimeInterval(28), endedAt: baseTime.addingTimeInterval(42), status: .completed),
-            TraceEvent(stage: "recommending", startedAt: baseTime.addingTimeInterval(42), endedAt: baseTime.addingTimeInterval(48), status: .completed),
-            TraceEvent(stage: "confirmation", startedAt: baseTime.addingTimeInterval(48), endedAt: baseTime.addingTimeInterval(62), status: .completed),
-            TraceEvent(stage: "logged", startedAt: baseTime.addingTimeInterval(62), endedAt: baseTime.addingTimeInterval(70), status: .completed),
-            TraceEvent(stage: "patch_apply", startedAt: baseTime.addingTimeInterval(70), endedAt: baseTime.addingTimeInterval(74), status: .completed),
-            TraceEvent(stage: "recompute", startedAt: baseTime.addingTimeInterval(74), endedAt: baseTime.addingTimeInterval(78), status: .completed),
-        ]
-        
-        totalDurationMs = 78000 // 78 seconds total
+    private func loadTrace() {
+        traceId = appState.traceIdForCurrentObservation()
+        let records = appState.loadOrCreateTrace(traceId: traceId)
+        traceEvents = records.map { record in
+            TraceEvent(
+                stage: record.stage,
+                startedAt: record.startedAt,
+                endedAt: record.endedAt,
+                status: traceStatus(from: record.status)
+            )
+        }
+        totalDurationMs = traceEvents.reduce(0) { $0 + $1.durationMs }
     }
     
     private func refreshTrace() {
-        loadDemoTrace()
+        loadTrace()
     }
     
     private func findDuration(for stage: String) -> Int {
@@ -98,6 +94,19 @@ struct TraceView: View {
             return event.durationMs
         }
         return 0
+    }
+
+    private func traceStatus(from rawValue: String) -> TraceStatus {
+        switch rawValue.lowercased() {
+        case "pending":
+            return .pending
+        case "in_progress":
+            return .inProgress
+        case "failed":
+            return .failed
+        default:
+            return .completed
+        }
     }
 }
 

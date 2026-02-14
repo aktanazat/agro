@@ -28,6 +28,7 @@ export interface AppState {
 export type Action =
   | { type: "SET_DATA"; observations: Observation[]; recommendations: Recommendation[]; playbook: Playbook; weather: WeatherFeatures; patches: PlaybookPatch[]; trace: TraceData }
   | { type: "SET_LIVE_MODE"; enabled: boolean }
+  | { type: "SET_SOURCE"; source: DataSource; liveMode: boolean }
   | { type: "SELECT"; id: string | null }
   | { type: "PATCH_APPLIED"; result: PatchApplyResult; patchedPlaybook: Playbook; recommendations: Recommendation[] }
   | { type: "SWAP_RECOMMENDATION"; from: string; to: string };
@@ -47,6 +48,13 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     case "SET_LIVE_MODE":
       return { ...state, liveMode: action.enabled, weatherMode: action.enabled ? "live" : "demo" };
+    case "SET_SOURCE":
+      return {
+        ...state,
+        source: action.source,
+        liveMode: action.liveMode,
+        weatherMode: action.liveMode ? "live" : "demo",
+      };
     case "SELECT":
       return { ...state, selectedId: action.id };
     case "PATCH_APPLIED":

@@ -34,6 +34,7 @@ export function Layout() {
       }),
     [state.weatherMode, state.liveMode, state.activePlaybookVersion],
   );
+  const inferenceLabel = `${formatInferenceLabel(pipelineStatus.inferenceMode)} (trace)`;
 
   return (
     <div className="h-screen flex overflow-hidden">
@@ -72,12 +73,7 @@ export function Layout() {
           </StatusRow>
           <StatusRow label="Playbook" value={`v${pipelineStatus.activePlaybookVersion}`} />
           <StatusRow label="Offline" value={pipelineStatus.offlineMode ? "true" : "false"} />
-          <StatusRow label="Inference">
-            <span className="inline-flex flex-wrap justify-end items-center gap-x-1 gap-y-0.5 font-mono text-slate-400 leading-tight">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
-              <span>{formatInferenceLabel(pipelineStatus.inferenceMode)} (trace)</span>
-            </span>
-          </StatusRow>
+          <StatusRow label="Inference" value={inferenceLabel} />
           <StatusRow label="Device" value={pipelineStatus.deviceId} />
         </div>
       </nav>
@@ -117,9 +113,9 @@ function StatusRow({ label, value, children }: {
     <div className="flex items-start justify-between gap-2">
       <span className="text-slate-500 shrink-0 pt-0.5">{label}</span>
       {children ? (
-        <div className="max-w-[9rem] text-right leading-tight">{children}</div>
+        <div className="max-w-[10.5rem] text-right leading-tight break-words">{children}</div>
       ) : (
-        <span className="font-mono text-slate-400 text-right leading-tight max-w-[9rem] break-words">
+        <span className="font-mono text-slate-400 text-right leading-tight max-w-[10.5rem] break-words">
           {value}
         </span>
       )}

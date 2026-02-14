@@ -186,9 +186,10 @@ struct PlaybookEditorView: View {
         appState.activePlaybookVersion = playbookVersion
         originalMaxWindKph = maxWindKph
         isPatchApplied = true
+        appState.recordTraceStage(stage: "patch_apply", durationMs: 4000)
         
         // Simulate recompute
-        recomputedRecommendation = Recommendation(
+        let recomputed = Recommendation(
             recommendationId: "rec_20260211_0002",
             observationId: "obs_20260211_0001",
             playbookId: "pbk_yolo_grape",
@@ -210,6 +211,8 @@ struct PlaybookEditorView: View {
             requiredConfirmation: true,
             status: .pendingConfirmation
         )
+        recomputedRecommendation = recomputed
+        appState.saveRecomputedRecommendation(recomputed)
     }
     
     private func formatTime(_ isoString: String) -> String {

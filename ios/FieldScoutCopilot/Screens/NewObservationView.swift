@@ -224,7 +224,9 @@ struct NewObservationView: View {
             
             audioEngine.prepare()
             try audioEngine.start()
+            appState.observationFlowState = .recording
             isRecording = true
+            appState.recordTraceStage(stage: "capture_start", durationMs: 5000)
             
         } catch {
             beginSimulatedRecording()
@@ -232,9 +234,10 @@ struct NewObservationView: View {
     }
     
     private func beginSimulatedRecording() {
+        appState.observationFlowState = .recording
         isRecording = true
-        
         let demoWords = "Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light.".split(separator: " ")
+        appState.recordTraceStage(stage: "capture_start", durationMs: 5000)
         
         var currentIndex = 0
         Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { timer in
@@ -257,8 +260,11 @@ struct NewObservationView: View {
     }
     
     private func stopRecording() {
+        guard isRecording else { return }
         isRecording = false
-        
+        appState.observationFlowState = .transcribing
+        appState.recordTraceStage(stage: "recording", durationMs: 17000)
+
         if audioEngine.isRunning {
             audioEngine.stop()
             recognitionRequest?.endAudio()
@@ -269,8 +275,13 @@ struct NewObservationView: View {
         recognitionTask = nil
         recognitionRequest = nil
         audioLevel = 0
+
+        if !voiceTranscript.isEmpty {
+            appState.observationFlowState = .extracting
+            appState.recordTraceStage(stage: "transcribing", durationMs: 6000)
+        }
     }
-    
+
     private func calculateAudioLevel(buffer: AVAudioPCMBuffer) -> Float {
         guard let channelData = buffer.floatChannelData?[0] else { return 0 }
         let frameLength = Int(buffer.frameLength)
@@ -278,6 +289,7 @@ struct NewObservationView: View {
         for i in 0..<frameLength { sum += abs(channelData[i]) }
         return min(sum / Float(frameLength) * 10, 1.0)
     }
+
 }
 
 // MARK: - Compact Voice Recorder

@@ -1,17 +1,21 @@
 import { useEffect, useReducer, useState } from "react";
 import { createExtractionAdapter } from "fieldscout-ai-pipeline/pipeline";
 import { FixtureSource } from "./data/fixture-source";
+import { LiveSource } from "./data/live-source";
 import { StoreContext, reducer, type AppState } from "./data/store";
 import type { DataSource } from "./data/datasource";
 import type { Observation } from "./data/types";
 import { Layout } from "./components/Layout";
 
 const fixtureSource = new FixtureSource();
+const liveSource = new LiveSource();
+const prefersLive = import.meta.env.VITE_USE_LIVE_SOURCE === "true";
+const initialSource: DataSource = prefersLive ? liveSource : fixtureSource;
 
 const initialState: AppState = {
-  source: fixtureSource,
-  liveMode: false,
-  weatherMode: "demo",
+  source: initialSource,
+  liveMode: prefersLive,
+  weatherMode: prefersLive ? "live" : "demo",
   observations: [],
   recommendations: [],
   playbook: null,
@@ -28,11 +32,46 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadFixtures(fixtureSource).then((data) => {
-      dispatch({ type: "SET_DATA", ...data });
-      setLoading(false);
-    });
+    let cancelled = false;
+    loadFixtures(initialSource)
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        dispatch({ type: "SET_DATA", ...data });
+        setLoading(false);
+      })
+      .catch(() => {
+        loadFixtures(fixtureSource).then((data) => {
+          if (cancelled) {
+            return;
+          }
+          dispatch({ type: "SET_SOURCE", source: fixtureSource, liveMode: false });
+          dispatch({ type: "SET_DATA", ...data });
+          setLoading(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (state.source.kind !== "live") {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      loadFixtures(state.source)
+        .then((data) => {
+          dispatch({ type: "SET_DATA", ...data });
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [state.source]);
 
   if (loading) {
     return (
@@ -50,15 +89,20 @@ export default function App() {
 }
 
 async function loadFixtures(source: DataSource) {
-  const [fixtureObservations, recommendations, playbook, weather, patch, trace] =
+  const [fixtureObservations, recommendations, playbook, weather] =
     await Promise.all([
       source.listObservations(),
       source.listRecommendations(),
       source.getPlaybook("pbk_yolo_grape"),
       source.getWeatherFeatures("wxf_20260211_demo_01"),
-      source.getPatch("pch_20260211_0001"),
-      source.getTrace("obs_20260211_0001"),
     ]);
+  const traceObservationId = fixtureObservations[0]?.observationId ?? "obs_20260211_0001";
+  const [patch, trace] = await Promise.all([
+    source
+      .getPatch("pch_20260211_0001")
+      .catch(() => fixtureSource.getPatch("pch_20260211_0001")),
+    source.getTrace(traceObservationId).catch(() => fixtureSource.getTrace("obs_20260211_0001")),
+  ]);
   const observations = await Promise.all(
     fixtureObservations.map((observation) => hydrateObservationWithPipeline(observation)),
   );

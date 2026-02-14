@@ -16,9 +16,10 @@ struct ReviewEditView: View {
     @State private var symptoms: [String] = ["white powder on upper leaf surfaces", "slight musty odor"]
     @State private var leafWetness: LeafWetness = .dry
     @State private var windEstimate: Double = 8.0
-    
+
     @State private var isExtracting = true
     @State private var extractionError: String?
+    @State private var generatedObservationId = ReviewEditView.generateObservationId()
     
     var body: some View {
         ScrollView {
@@ -135,15 +136,15 @@ struct ReviewEditView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             isExtracting = false
             appState.observationFlowState = .extracted
+            appState.recordTraceStage(stage: "extracting", durationMs: 14000)
         }
     }
     
     private func buildObservation() -> Observation {
-        let observationId = "obs_20260211_0001"
         let now = ISO8601DateFormatter().string(from: Date())
         
         return Observation(
-            observationId: observationId,
+            observationId: generatedObservationId,
             deviceId: appState.deviceId,
             createdAt: now,
             captureMode: captureMode,
@@ -172,6 +173,14 @@ struct ReviewEditView: View {
             schemaVersion: "1.0.0",
             deterministicChecksum: "sha256:A1B2C3D4E5F6"
         )
+    }
+
+    private static func generateObservationId() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let date = formatter.string(from: Date())
+        let suffix = String(format: "%04d", Int.random(in: 0...9999))
+        return "obs_\(date)_\(suffix)"
     }
 }
 

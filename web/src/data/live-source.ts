@@ -17,13 +17,40 @@ import type {
 export class LiveSource implements DataSource {
   kind = "live" as const;
   private baseUrl: string;
+  private apiKey: string;
+  private apiKeyHeader: string;
+  private apiKeyPrefix: string;
+  private deviceToken: string;
 
-  constructor(baseUrl = "/v1") {
+  constructor(baseUrl = import.meta.env.VITE_API_BASE_URL ?? "/v1") {
     this.baseUrl = baseUrl;
+    this.apiKey = import.meta.env.VITE_SQLITECLOUD_API_KEY ?? "";
+    this.apiKeyHeader = import.meta.env.VITE_SQLITECLOUD_API_KEY_HEADER ?? "x-api-key";
+    this.apiKeyPrefix = import.meta.env.VITE_SQLITECLOUD_API_KEY_PREFIX ?? "";
+    this.deviceToken = import.meta.env.VITE_DEVICE_TOKEN ?? "";
+  }
+
+  private requestHeaders(extra: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = { ...extra };
+    if (this.apiKey) {
+      headers[this.apiKeyHeader] = this.apiKeyPrefix
+        ? `${this.apiKeyPrefix} ${this.apiKey}`
+        : this.apiKey;
+    }
+    if (this.deviceToken) {
+      headers["X-Device-Token"] = this.deviceToken;
+    }
+    return headers;
+  }
+
+  private idempotencyKey(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   private async get<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`);
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      headers: this.requestHeaders(),
+    });
     if (!res.ok) throw new Error(`LiveSource: ${res.status} ${res.statusText}`);
     return res.json() as Promise<T>;
   }
@@ -42,7 +69,10 @@ export class LiveSource implements DataSource {
   async applyPatch(patch: PlaybookPatch): Promise<PatchApplyResult> {
     const res = await fetch(`${this.baseUrl}/playbooks/${patch.playbookId}/patches`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.requestHeaders({
+        "Content-Type": "application/json",
+        "Idempotency-Key": this.idempotencyKey(`patch-${patch.patchId}`),
+      }),
       body: JSON.stringify(patch),
     });
     if (!res.ok) throw new Error(`LiveSource: ${res.status} ${res.statusText}`);
