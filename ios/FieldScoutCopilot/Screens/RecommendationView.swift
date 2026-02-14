@@ -8,6 +8,7 @@ struct RecommendationView: View {
     @State private var recommendation: Recommendation?
     @State private var isGenerating = true
     @State private var isConfirmed = false
+    @State private var generatedRecommendationId = RecommendationView.generateRecommendationId()
     
     var body: some View {
         ScrollView {
@@ -162,7 +163,7 @@ struct RecommendationView: View {
         // Simulate recommendation generation
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             let generatedRecommendation = Recommendation(
-                recommendationId: "rec_20260211_0001",
+                recommendationId: generatedRecommendationId,
                 observationId: observation.observationId,
                 playbookId: "pbk_yolo_grape",
                 playbookVersion: appState.activePlaybookVersion,
@@ -242,6 +243,14 @@ struct RecommendationView: View {
             }
         }
         return isoString
+    }
+
+    private static func generateRecommendationId() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let date = formatter.string(from: Date())
+        let suffix = String(format: "%04d", Int.random(in: 0...9999))
+        return "rec_\(date)_\(suffix)"
     }
 }
 

@@ -12,6 +12,7 @@ struct GenerateRecommendationView: View {
     @State private var currentStep: ProcessingStep = .analyzing
     @State private var observation: Observation?
     @State private var recommendation: Recommendation?
+    @State private var generatedObservationId = GenerateRecommendationView.generateEntityId(prefix: "obs")
     
     // Extracted fields
     @State private var extractedCrop: String = "Grape"
@@ -170,7 +171,7 @@ struct GenerateRecommendationView: View {
         // Build observation
         let now = ISO8601DateFormatter().string(from: Date())
         observation = Observation(
-            observationId: "obs_20260211_0001",
+            observationId: generatedObservationId,
             deviceId: appState.deviceId,
             createdAt: now,
             captureMode: captureMode,
@@ -225,6 +226,7 @@ struct GenerateRecommendationView: View {
     }
     
     private func generateRecommendation() {
+        let recommendationId = Self.generateEntityId(prefix: "rec")
         let action: String
         let startTime: String
         let endTime: String
@@ -249,8 +251,8 @@ struct GenerateRecommendationView: View {
         }
         
         recommendation = Recommendation(
-            recommendationId: "rec_20260211_0001",
-            observationId: observation?.observationId ?? "obs_20260211_0001",
+            recommendationId: recommendationId,
+            observationId: observation?.observationId ?? generatedObservationId,
             playbookId: "pbk_yolo_grape",
             playbookVersion: appState.activePlaybookVersion,
             weatherFeaturesId: "wxf_20260211_demo_01",
@@ -318,6 +320,14 @@ struct GenerateRecommendationView: View {
             requiredConfirmation: recommendation.requiredConfirmation,
             status: status
         )
+    }
+
+    private static func generateEntityId(prefix: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        let date = formatter.string(from: Date())
+        let suffix = String(format: "%04d", Int.random(in: 0...9999))
+        return "\(prefix)_\(date)_\(suffix)"
     }
 }
 

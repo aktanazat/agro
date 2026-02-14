@@ -57,6 +57,22 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (state.source.kind !== "live") {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      loadFixtures(state.source)
+        .then((data) => {
+          dispatch({ type: "SET_DATA", ...data });
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [state.source]);
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-sm text-slate-400">
@@ -73,15 +89,20 @@ export default function App() {
 }
 
 async function loadFixtures(source: DataSource) {
-  const [fixtureObservations, recommendations, playbook, weather, patch, trace] =
+  const [fixtureObservations, recommendations, playbook, weather] =
     await Promise.all([
       source.listObservations(),
       source.listRecommendations(),
       source.getPlaybook("pbk_yolo_grape"),
       source.getWeatherFeatures("wxf_20260211_demo_01"),
-      source.getPatch("pch_20260211_0001"),
-      source.getTrace("obs_20260211_0001"),
     ]);
+  const traceObservationId = fixtureObservations[0]?.observationId ?? "obs_20260211_0001";
+  const [patch, trace] = await Promise.all([
+    source
+      .getPatch("pch_20260211_0001")
+      .catch(() => fixtureSource.getPatch("pch_20260211_0001")),
+    source.getTrace(traceObservationId).catch(() => fixtureSource.getTrace("obs_20260211_0001")),
+  ]);
   const observations = await Promise.all(
     fixtureObservations.map((observation) => hydrateObservationWithPipeline(observation)),
   );
