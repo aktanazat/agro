@@ -1,0 +1,16 @@
+{
+  "patchId": "pch_20260211_0001",
+  "playbookId": "pbk_yolo_grape",
+  "baseVersion": 3,
+  "requestedByDeviceId": "dev_ios_001",
+  "requestedAt": "2026-02-11T18:21:40Z",
+  "reason": "Tighten wind constraint after field observation of moderate drift risk",
+  "operations": [
+    {
+      "op": "replace",
+      "path": "/rules/rule_pm_moderate/constraints/maxWindKph",
+      "value": 10,
+      "justification": "Observed moderate wind shear; reducing threshold to mitigate spray drift"
+    }
+  ]
+}
