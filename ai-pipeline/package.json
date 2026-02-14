@@ -1,0 +1,22 @@
+{
+  "name": "fieldscout-ai-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Person B: capture-to-extraction pipeline with schema validation and confidence gating",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "tsx tests/eval-harness.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^22.0.0"
+  }
+}
