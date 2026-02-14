@@ -1,15 +1,23 @@
 import Foundation
 
-/// Deterministic recommendation engine based on playbook rules and weather features
+/// Deterministic recommendation engine based on playbook rules and weather features.
+/// When a `CactusAdapter` is provided, uses on-device LLM for richer action text and rationale,
+/// falling back to deterministic output if the adapter is nil or throws.
 class RecommendationEngine: RecommendationService {
-    
+
+    private let cactusAdapter: CactusAdapter?
+
+    init(cactusAdapter: CactusAdapter? = nil) {
+        self.cactusAdapter = cactusAdapter
+    }
+
     func generateRecommendation(
         observation: Observation,
         playbook: Playbook,
         weatherFeatures: WeatherFeatures,
         generatedAt: String
-    ) throws -> Recommendation {
-        
+    ) async throws -> Recommendation {
+
         // Select rule based on issue and severity
         guard let rule = selectRule(
             from: playbook,
@@ -18,27 +26,50 @@ class RecommendationEngine: RecommendationService {
         ) else {
             throw RecommendationError.noMatchingRule
         }
-        
+
+        // Try LLM-generated action and rationale; fall back to deterministic
+        var action = rule.action.instructions
+        var rationale: [String] = []
+
+        if let adapter = cactusAdapter {
+            do {
+                let llmResult = try await adapter.generateRecommendation(
+                    observation: observation,
+                    playbook: playbook,
+                    weatherFeatures: weatherFeatures
+                )
+                action = llmResult.action
+                rationale = llmResult.rationale
+            } catch {
+                // LLM unavailable — fall through to deterministic rationale below
+            }
+        }
+
         // Calculate base timing window
         var window = calculateBaseWindow(rule: rule, referenceTime: Date())
-        
-        // Adjust window based on weather features
-        var rationale: [String] = []
+
+        // Adjust window based on weather features (also appends deterministic rationale tags)
+        var weatherRationale: [String] = []
         window = adjustForWeather(
             window: window,
             weatherFeatures: weatherFeatures,
             rule: rule,
-            rationale: &rationale
+            rationale: &weatherRationale
         )
-        
+
+        // If LLM didn't provide rationale, use deterministic tags
+        if rationale.isEmpty {
+            rationale = weatherRationale
+        }
+
         // Check constraints
         let riskFlags = evaluateConstraints(rule: rule, weatherFeatures: weatherFeatures)
-        
+
         // Build drivers list
         let drivers = buildDriversList(weatherFeatures: weatherFeatures, rule: rule)
-        
+
         let recommendationId = generateRecommendationId()
-        
+
         return Recommendation(
             recommendationId: recommendationId,
             observationId: observation.observationId,
@@ -48,7 +79,7 @@ class RecommendationEngine: RecommendationService {
             generatedAt: generatedAt,
             issue: observation.extraction.issue,
             severity: observation.extraction.severity,
-            action: rule.action.instructions,
+            action: action,
             rationale: rationale,
             timingWindow: RecommendationTimingWindow(
                 startAt: formatISO8601(window.start),

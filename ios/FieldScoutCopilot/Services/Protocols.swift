@@ -32,7 +32,7 @@ public protocol RecommendationService {
         playbook: Playbook,
         weatherFeatures: WeatherFeatures,
         generatedAt: String
-    ) throws -> Recommendation
+    ) async throws -> Recommendation
 }
 
 public protocol PlaybookService {
@@ -63,4 +63,15 @@ public protocol SyncService {
 public protocol CactusAdapter {
     func extractStructuredFields(from text: String) async throws -> ObservationExtraction
     func transcribeAudio(from audioData: Data) async throws -> ObservationTranscription
+    func generateRecommendation(
+        observation: Observation,
+        playbook: Playbook,
+        weatherFeatures: WeatherFeatures
+    ) async throws -> CactusRecommendationResult
+}
+
+public struct CactusRecommendationResult {
+    public let action: String
+    public let rationale: [String]
+    public let timingReasoningHours: (start: Double, end: Double)?
 }

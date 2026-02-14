@@ -12,8 +12,9 @@ struct GenerateRecommendationView: View {
     @State private var currentStep: ProcessingStep = .analyzing
     @State private var observation: Observation?
     @State private var recommendation: Recommendation?
+    @State private var errorMessage: String?
     
-    // Extracted fields
+    // Extracted fields (derived from observation for display)
     @State private var extractedCrop: String = "Grape"
     @State private var extractedIssue: Issue = .powderyMildew
     @State private var extractedSeverity: Severity = .moderate
@@ -27,6 +28,7 @@ struct GenerateRecommendationView: View {
         case recommending
         case ready
         case confirmed
+        case error
     }
     
     var body: some View {
@@ -50,7 +52,21 @@ struct GenerateRecommendationView: View {
                     .padding(.horizontal)
                     
                     // Main content
-                    if currentStep == .analyzing {
+                    if currentStep == .error {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.title)
+                                .foregroundColor(.orange)
+                            Text(errorMessage ?? "Something went wrong")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") { startProcessing() }
+                                .font(.subheadline)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.vertical, 40)
+                    } else if currentStep == .analyzing {
                         AnalyzingOverlay()
                             .padding(.vertical, 40)
                     } else {
@@ -120,160 +136,132 @@ struct GenerateRecommendationView: View {
         }
     }
     
-    // MARK: - Processing
+    // MARK: - Processing (service-backed)
     
     private func startProcessing() {
         currentStep = .analyzing
+        errorMessage = nil
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            performExtraction()
+        Task {
+            await runPipeline()
         }
     }
     
-    private func performExtraction() {
-        let lowercased = rawNoteText.lowercased()
+    /// Full pipeline: extract → recommend, using real services from AppState.
+    @MainActor
+    private func runPipeline() async {
+        // --- Stage 1: Extraction via ExtractionServiceImpl ---
+        let extractionStart = Date()
         
-        // Issue
-        if lowercased.contains("mildew") || lowercased.contains("powder") || lowercased.contains("white") {
-            extractedIssue = .powderyMildew
-        } else if lowercased.contains("heat") || lowercased.contains("stress") || lowercased.contains("wilt") {
-            extractedIssue = .heatStress
-        } else {
-            extractedIssue = .other
-        }
-        
-        // Severity
-        if lowercased.contains("severe") || lowercased.contains("heavy") || lowercased.contains("high") {
-            extractedSeverity = .high
-        } else if lowercased.contains("moderate") || lowercased.contains("medium") {
-            extractedSeverity = .moderate
-        } else {
-            extractedSeverity = .low
-        }
-        
-        // Field block
-        if let range = rawNoteText.range(of: #"[Bb]lock\s+(\d+|[A-Z])"#, options: .regularExpression) {
-            extractedFieldBlock = String(rawNoteText[range])
-        } else {
-            extractedFieldBlock = "Field Area"
-        }
-        
-        // Variety
-        let varieties = ["chardonnay", "cabernet", "merlot", "pinot", "zinfandel"]
-        for v in varieties {
-            if lowercased.contains(v) {
-                extractedVariety = v.capitalized
-                break
-            }
-        }
-        
-        // Build observation
-        let now = ISO8601DateFormatter().string(from: Date())
-        observation = Observation(
-            observationId: "obs_20260211_0001",
-            deviceId: appState.deviceId,
-            createdAt: now,
-            captureMode: captureMode,
-            rawNoteText: rawNoteText,
-            transcription: ObservationTranscription(
-                text: rawNoteText,
-                source: captureMode == .voice ? .onDeviceAsr : .manualTyped,
-                confidence: transcriptConfidence
-            ),
-            extraction: ObservationExtraction(
-                crop: .grape,
-                variety: extractedVariety?.lowercased(),
-                fieldBlock: extractedFieldBlock,
-                issue: extractedIssue,
-                severity: extractedSeverity,
-                symptoms: extractSymptoms(from: rawNoteText),
-                observationTime: now
-            ),
-            normalization: ObservationNormalization(
-                temperatureC: nil,
-                leafWetness: lowercased.contains("dry") ? .dry : .unknown,
-                windEstimateKph: lowercased.contains("light") ? 8 : 12
-            ),
-            location: GeoPoint(lat: 38.5449, lon: -121.7405),
-            status: .draft,
-            schemaVersion: "1.0.0",
-            deterministicChecksum: "sha256:A1B2C3D4E5F6"
+        let transcription = ObservationTranscription(
+            text: rawNoteText,
+            source: captureMode == .voice ? .onDeviceAsr : .manualTyped,
+            confidence: transcriptConfidence
         )
         
+        let location = GeoPoint(lat: 38.5449, lon: -121.7405)
+        
+        do {
+            let obs = try await appState.extractionService.extractObservation(
+                from: rawNoteText,
+                captureMode: captureMode,
+                transcription: transcription,
+                deviceId: appState.deviceId,
+                location: location
+            )
+            
+            observation = obs
+            
+            // Update display fields from the real extraction
+            extractedIssue = obs.extraction.issue
+            extractedSeverity = obs.extraction.severity
+            extractedFieldBlock = obs.extraction.fieldBlock
+            extractedCrop = obs.extraction.crop == .grape ? "Grape" : "Grape"
+            extractedVariety = obs.extraction.variety?.capitalized
+            
+            // Record extraction trace
+            appState.localStore.recordTraceEvent(
+                traceId: obs.observationId,
+                stage: "extraction",
+                startedAt: extractionStart,
+                endedAt: Date(),
+                status: "ok",
+                relatedObservationId: obs.observationId
+            )
+            
+        } catch {
+            errorMessage = "Extraction failed: \(error.localizedDescription)"
+            currentStep = .error
+            return
+        }
+        
+        // --- Stage 2: Load playbook + weather, then recommend ---
         currentStep = .recommending
+        let recStart = Date()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            generateRecommendation()
+        guard let obs = observation else { return }
+        
+        do {
+            let playbook = try appState.playbookService.fetchActivePlaybook(playbookId: "pbk_yolo_grape")
+            
+            let now = ISO8601DateFormatter().string(from: Date())
+            let weather = try appState.weatherService.loadDemoWeatherFeatures(
+                weatherFeaturesId: "wxf_\(obs.observationId)_demo",
+                profileTime: now,
+                location: location
+            )
+            
+            let rec = try await appState.recommendationEngine.generateRecommendation(
+                observation: obs,
+                playbook: playbook,
+                weatherFeatures: weather,
+                generatedAt: now
+            )
+            
+            recommendation = rec
+            appState.currentRecommendation = rec
+            appState.activePlaybookVersion = playbook.version
+            
+            // Record recommendation trace
+            appState.localStore.recordTraceEvent(
+                traceId: obs.observationId,
+                stage: "recommendation",
+                startedAt: recStart,
+                endedAt: Date(),
+                status: "ok",
+                relatedObservationId: obs.observationId,
+                relatedRecommendationId: rec.recommendationId
+            )
+            
+            currentStep = .ready
+            
+        } catch {
+            errorMessage = "Recommendation failed: \(error.localizedDescription)"
+            currentStep = .error
         }
-    }
-    
-    private func extractSymptoms(from text: String) -> [String] {
-        var symptoms: [String] = []
-        let lowercased = text.lowercased()
-        
-        if lowercased.contains("powder") { symptoms.append("white powder on leaves") }
-        if lowercased.contains("musty") { symptoms.append("musty odor") }
-        if lowercased.contains("curl") { symptoms.append("leaf curling") }
-        if lowercased.contains("wilt") { symptoms.append("wilting") }
-        
-        return symptoms.isEmpty ? ["visual symptoms observed"] : symptoms
-    }
-    
-    private func generateRecommendation() {
-        let action: String
-        let startTime: String
-        let endTime: String
-        let rationale: [String]
-        
-        switch extractedIssue {
-        case .powderyMildew:
-            action = "Apply sulfur-based contact spray in affected block."
-            startTime = "2026-02-11T21:00:00-08:00"
-            endTime = "2026-02-12T00:30:00-08:00"
-            rationale = ["avoid_inversion", "high_humidity_persistence"]
-        case .heatStress:
-            action = "Schedule short-cycle irrigation and canopy cooling check."
-            startTime = "2026-02-12T04:30:00-08:00"
-            endTime = "2026-02-12T07:00:00-08:00"
-            rationale = ["optimal_irrigation_window", "low_evaporation"]
-        case .other:
-            action = "Monitor affected area and reassess in 24 hours."
-            startTime = "2026-02-12T08:00:00-08:00"
-            endTime = "2026-02-12T12:00:00-08:00"
-            rationale = ["standard_monitoring_window"]
-        }
-        
-        recommendation = Recommendation(
-            recommendationId: "rec_20260211_0001",
-            observationId: observation?.observationId ?? "obs_20260211_0001",
-            playbookId: "pbk_yolo_grape",
-            playbookVersion: appState.activePlaybookVersion,
-            weatherFeaturesId: "wxf_20260211_demo_01",
-            generatedAt: ISO8601DateFormatter().string(from: Date()),
-            issue: extractedIssue,
-            severity: extractedSeverity,
-            action: action,
-            rationale: rationale,
-            timingWindow: RecommendationTimingWindow(
-                startAt: startTime,
-                endAt: endTime,
-                localTimezone: "America/Los_Angeles",
-                confidence: 0.82,
-                drivers: ["inversionPresent=false", "humidityLayering=uniform_humid", "windShearProxy=moderate"]
-            ),
-            riskFlags: [],
-            requiredConfirmation: true,
-            status: .pendingConfirmation
-        )
-        
-        currentStep = .ready
-        appState.currentRecommendation = recommendation
     }
     
     private func confirmRecommendation() {
+        guard let obs = observation, let rec = recommendation else { return }
+        
+        // Persist to LocalStore
+        appState.localStore.saveObservation(obs)
+        appState.localStore.saveRecommendation(rec)
+        
+        // Record confirm trace
+        appState.localStore.recordTraceEvent(
+            traceId: obs.observationId,
+            stage: "confirm",
+            startedAt: Date(),
+            endedAt: Date(),
+            status: "ok",
+            relatedObservationId: obs.observationId,
+            relatedRecommendationId: rec.recommendationId
+        )
+        
         currentStep = .confirmed
         appState.observationFlowState = .confirmed
-        appState.currentObservation = observation
+        appState.currentObservation = obs
     }
 }
 

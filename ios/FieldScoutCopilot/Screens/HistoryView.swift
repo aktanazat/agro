@@ -39,20 +39,22 @@ struct HistoryView: View {
     }
     
     private func loadHistory() {
-        // Load from current app state if available
-        if let observation = appState.currentObservation,
-           let recommendation = appState.currentRecommendation {
-            historyItems = [
-                HistoryItem(
-                    observationId: observation.observationId,
-                    recommendationId: recommendation.recommendationId,
-                    issue: observation.extraction.issue,
-                    severity: observation.extraction.severity,
-                    fieldBlock: observation.extraction.fieldBlock,
-                    status: recommendation.status,
-                    createdAt: observation.createdAt
-                )
-            ]
+        let store = appState.localStore
+        let observations = store.listRecentObservations(deviceId: appState.deviceId, limit: 50)
+        
+        historyItems = observations.compactMap { obs in
+            let recs = store.listRecommendationsForObservation(observationId: obs.observationId)
+            let latestRec = recs.first
+            
+            return HistoryItem(
+                observationId: obs.observationId,
+                recommendationId: latestRec?.recommendationId ?? "—",
+                issue: obs.extraction.issue,
+                severity: obs.extraction.severity,
+                fieldBlock: obs.extraction.fieldBlock,
+                status: latestRec?.status ?? .pendingConfirmation,
+                createdAt: obs.createdAt
+            )
         }
     }
 }
