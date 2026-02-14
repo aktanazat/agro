@@ -1,4 +1,9 @@
 import { useStore } from "../data/store";
+import { evaluateThresholds, deriveOverallStatus, type OverallStatus } from "fieldscout-ai-pipeline/thresholds";
+
+const STATUS_COLOR: Record<OverallStatus, "emerald" | "amber" | "red"> = {
+  PASS: "emerald", WARN: "amber", FAIL: "red",
+};
 
 export function Trace() {
   const { state } = useStore();
@@ -10,10 +15,12 @@ export function Trace() {
     );
   }
 
-  const warnings = trace.thresholds.filter((t) => t.actualMs > t.maxMs);
-  const overallPass = trace.totalDurationMs <= 90000;
-  const status = !overallPass ? "FAIL" : warnings.length > 0 ? "WARN" : "PASS";
-  const statusColor = status === "PASS" ? "emerald" : status === "WARN" ? "amber" : "red";
+  const stageTimings: Record<string, number> = {};
+  for (const s of trace.stages) stageTimings[s.stage] = s.durationMs;
+  const thresholdResults = evaluateThresholds(stageTimings, trace.totalDurationMs);
+  const status = deriveOverallStatus(trace.totalDurationMs, thresholdResults);
+  const statusColor = STATUS_COLOR[status];
+  const warnings = thresholdResults.filter((t) => !t.pass);
   const statusSub = warnings.length > 0 ? `${warnings.length} threshold warning${warnings.length > 1 ? "s" : ""}` : undefined;
 
   return (
@@ -109,25 +116,22 @@ export function Trace() {
               </tr>
             </thead>
             <tbody className="font-mono text-slate-600">
-              {trace.thresholds.map((t) => {
-                const ok = t.actualMs <= t.maxMs;
-                return (
+              {thresholdResults.map((t) => (
                   <tr key={t.label} className="border-t border-slate-100">
                     <td className="py-2 text-slate-800">{t.label}</td>
                     <td className="py-2 text-right text-slate-400">{t.maxMs} ms</td>
-                    <td className={`py-2 text-right ${ok ? "text-slate-600" : "text-red-600"}`}>
+                    <td className={`py-2 text-right ${t.pass ? "text-slate-600" : "text-red-600"}`}>
                       {t.actualMs} ms
                     </td>
                     <td className="py-2 text-right">
                       <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
-                        ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                        t.pass ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
                       }`}>
-                        {ok ? "pass" : "fail"}
+                        {t.pass ? "pass" : "fail"}
                       </span>
                     </td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
         </div>

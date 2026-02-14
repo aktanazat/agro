@@ -1,78 +1,40 @@
 import { useState } from "react";
 import { useStore } from "../data/store";
-
-interface AuditEvent {
-  timestamp: string;
-  event: string;
-  entityId: string;
-  detail: string;
-  causedBy?: string;
-  raw: unknown;
-}
+import { buildAuditLog, type AuditEvent } from "fieldscout-ai-pipeline/audit-log";
 
 function deriveEvents(state: ReturnType<typeof useStore>["state"]): AuditEvent[] {
-  const events: AuditEvent[] = [];
   const obs = state.observations[0];
   const rec1 = state.recommendations.find((r) => r.recommendationId === "rec_20260211_0001");
   const rec2 = state.recommendations.find((r) => r.recommendationId === "rec_20260211_0002");
   const patch = state.patches[0];
 
-  if (obs) {
-    events.push({
-      timestamp: obs.createdAt,
-      event: "observation.created",
-      entityId: obs.observationId,
-      detail: `${obs.extraction.fieldBlock} ${obs.extraction.crop} — ${obs.extraction.issue} (${obs.extraction.severity})`,
-      raw: obs,
-    });
-    events.push({
-      timestamp: obs.createdAt,
-      event: "observation.confirmed",
-      entityId: obs.observationId,
-      detail: `Status → confirmed | checksum ${obs.deterministicChecksum}`,
-      raw: { observationId: obs.observationId, status: obs.status, checksum: obs.deterministicChecksum },
-    });
-  }
+  const recs = [rec1, rec2].filter((r): r is NonNullable<typeof r> => r != null);
 
-  if (rec1) {
-    events.push({
-      timestamp: rec1.generatedAt,
-      event: "recommendation.generated",
-      entityId: rec1.recommendationId,
-      detail: `${rec1.action} | window ${rec1.timingWindow.startAt} – ${rec1.timingWindow.endAt}`,
-      raw: rec1,
-    });
-  }
-
-  if (patch && state.patchResult) {
-    events.push({
-      timestamp: patch.requestedAt,
-      event: "playbook.patch_applied",
-      entityId: patch.patchId,
-      detail: `${patch.playbookId} v${patch.baseVersion} → v${patch.baseVersion + 1} | ${patch.operations[0].path}: ${12} → ${patch.operations[0].value}`,
-      raw: patch,
-    });
-  }
-
-  if (rec2 && state.patchResult) {
-    events.push({
-      timestamp: rec2.generatedAt,
-      event: "recommendation.recomputed",
-      entityId: rec2.recommendationId,
-      detail: `Tightened window ${rec2.timingWindow.startAt} – ${rec2.timingWindow.endAt} (was 21:00:00 – 00:30:00)`,
-      causedBy: "pch_20260211_0001",
-      raw: rec2,
-    });
-  }
-
-  return events.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return buildAuditLog({
+    observation: obs ? {
+      ...obs,
+      captureMode: obs.captureMode as "voice" | "typed",
+      status: obs.status as "confirmed",
+      deterministicChecksum: obs.deterministicChecksum,
+    } : undefined,
+    recommendations: recs,
+    patch: (patch && state.patchResult) ? patch : undefined,
+    patchResult: state.patchResult ?? undefined,
+    recomputedRecommendation: (rec2 && state.patchResult) ? rec2 : undefined,
+  });
 }
 
 const EVENT_COLORS: Record<string, string> = {
   "observation.created": "bg-blue-500",
   "observation.confirmed": "bg-emerald-500",
+  "extraction.completed": "bg-cyan-500",
+  "extraction.fallback_used": "bg-amber-400",
+  "validation.passed": "bg-teal-500",
+  "validation.failed": "bg-red-400",
   "recommendation.generated": "bg-violet-500",
+  "recommendation.confirmed": "bg-emerald-600",
   "playbook.patch_applied": "bg-amber-500",
+  "playbook.patch_rejected": "bg-red-500",
   "recommendation.recomputed": "bg-rose-500",
 };
 

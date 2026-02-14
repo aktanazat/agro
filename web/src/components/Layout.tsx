@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../data/store";
+import { getPipelineStatus, formatInferenceLabel } from "fieldscout-ai-pipeline/pipeline-status";
 import { Observations } from "../screens/Observations";
 import { Recommendations } from "../screens/Recommendations";
 import { Playbooks } from "../screens/Playbooks";
@@ -24,6 +25,15 @@ type Screen = (typeof NAV_MAIN)[number]["id"] | (typeof NAV_EXTRA)[number]["id"]
 export function Layout() {
   const [screen, setScreen] = useState<Screen>("observations");
   const { state } = useStore();
+  const pipelineStatus = useMemo(
+    () =>
+      getPipelineStatus({
+        weatherMode: state.weatherMode,
+        dataMode: state.liveMode ? "live" : "fixture",
+        activePlaybookVersion: state.activePlaybookVersion,
+      }),
+    [state.weatherMode, state.liveMode, state.activePlaybookVersion],
+  );
 
   return (
     <div className="h-screen flex overflow-hidden">
@@ -56,20 +66,19 @@ export function Layout() {
 
         {/* Status badges */}
         <div className="px-4 py-3 border-t border-slate-700 space-y-1.5 text-[11px]">
-          <StatusRow label="Data" value={state.liveMode ? "live" : "fixture"} />
+          <StatusRow label="Data" value={pipelineStatus.dataMode} />
           <StatusRow label="Weather">
-            <ModeBadge mode={state.weatherMode} />
+            <ModeBadge mode={pipelineStatus.weatherMode} />
           </StatusRow>
-          <StatusRow label="Playbook" value={`v${state.activePlaybookVersion}`} />
-          <StatusRow label="Offline">
-            <ModeBadge mode="demo" label="true" />
-          </StatusRow>
+          <StatusRow label="Playbook" value={`v${pipelineStatus.activePlaybookVersion}`} />
+          <StatusRow label="Offline" value={pipelineStatus.offlineMode ? "true" : "false"} />
           <StatusRow label="Inference">
             <span className="inline-flex items-center gap-1 font-mono text-slate-400">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              on-device (trace)
+              {formatInferenceLabel(pipelineStatus.inferenceMode)} (trace)
             </span>
           </StatusRow>
+          <StatusRow label="Device" value={pipelineStatus.deviceId} />
         </div>
       </nav>
 
