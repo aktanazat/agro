@@ -20,10 +20,13 @@ class ExtractionServiceImpl: ExtractionService {
         let extraction: ObservationExtraction
         
         if let adapter = cactusAdapter {
-            // Use Cactus for AI extraction
-            extraction = try await adapter.extractStructuredFields(from: rawNoteText)
+            // Try Cactus for AI extraction; fall back to rules if model isn't ready or fails
+            do {
+                extraction = try await adapter.extractStructuredFields(from: rawNoteText)
+            } catch {
+                extraction = extractWithRules(from: rawNoteText)
+            }
         } else {
-            // Fallback to rule-based extraction
             extraction = extractWithRules(from: rawNoteText)
         }
         

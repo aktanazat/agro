@@ -19,12 +19,38 @@ class RecommendationEngine: RecommendationService {
     ) async throws -> Recommendation {
 
         // Select rule based on issue and severity
-        guard let rule = selectRule(
+        let rule = selectRule(
             from: playbook,
             issue: observation.extraction.issue,
             severity: observation.extraction.severity
-        ) else {
-            throw RecommendationError.noMatchingRule
+        )
+
+        // If no matching rule, return a default "monitor" recommendation
+        guard let rule else {
+            let recommendationId = generateRecommendationId()
+            let now = Date()
+            return Recommendation(
+                recommendationId: recommendationId,
+                observationId: observation.observationId,
+                playbookId: playbook.playbookId,
+                playbookVersion: playbook.version,
+                weatherFeaturesId: weatherFeatures.weatherFeaturesId,
+                generatedAt: generatedAt,
+                issue: observation.extraction.issue,
+                severity: observation.extraction.severity,
+                action: "Monitor affected area and reassess in 24 hours.",
+                rationale: ["standard_monitoring_window"],
+                timingWindow: RecommendationTimingWindow(
+                    startAt: formatISO8601(now.addingTimeInterval(8 * 3600)),
+                    endAt: formatISO8601(now.addingTimeInterval(12 * 3600)),
+                    localTimezone: "America/Los_Angeles",
+                    confidence: 0.6,
+                    drivers: ["noMatchingPlaybookRule=true"]
+                ),
+                riskFlags: [.manualReviewRequired],
+                requiredConfirmation: true,
+                status: .pendingConfirmation
+            )
         }
 
         // Try LLM-generated action and rationale; fall back to deterministic
