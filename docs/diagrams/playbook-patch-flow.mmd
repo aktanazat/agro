@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant User
+    participant Editor as PlaybookEditor
+    participant Validator as PatchValidator
+    participant Store as PlaybookStore
+    participant Engine as RecommendationEngine
+
+    User->>Editor: Submit patch pch_20260211_0001
+    Editor->>Validator: Validate operations and baseVersion=3
+    Validator-->>Editor: valid
+    Editor->>Store: Apply patch atomically
+    Store-->>Editor: Playbook version 4
+    Editor->>Engine: Recompute from last Observation obs_20260211_0001
+    Engine-->>Editor: rec_20260211_0002
+    Editor-->>User: Show new window + audit entry
+
+    Note over Editor,Store: If validation fails, status=rejected and version stays unchanged

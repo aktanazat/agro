@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fieldscout-copilot/contracts/schemas/Recommendation.json",
+  "title": "Recommendation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recommendationId",
+    "observationId",
+    "playbookId",
+    "playbookVersion",
+    "weatherFeaturesId",
+    "generatedAt",
+    "issue",
+    "severity",
+    "action",
+    "rationale",
+    "timingWindow",
+    "riskFlags",
+    "requiredConfirmation",
+    "status"
+  ],
+  "properties": {
+    "recommendationId": {
+      "type": "string",
+      "pattern": "^rec_[0-9]{8}_[0-9]{4}$"
+    },
+    "observationId": {
+      "type": "string",
+      "pattern": "^obs_[0-9]{8}_[0-9]{4}$"
+    },
+    "playbookId": {
+      "type": "string",
+      "pattern": "^pbk_[a-z0-9_]+$"
+    },
+    "playbookVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "weatherFeaturesId": {
+      "type": "string",
+      "pattern": "^wxf_[0-9]{8}_[a-z0-9_]+$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issue": {
+      "type": "string",
+      "enum": ["powdery_mildew", "heat_stress", "other"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "moderate", "high"]
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "timingWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startAt", "endAt", "localTimezone", "confidence", "drivers"],
+      "properties": {
+        "startAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "localTimezone": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "drivers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "riskFlags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "weather_data_missing",
+          "high_drift_risk",
+          "low_confidence",
+          "manual_review_required"
+        ]
+      }
+    },
+    "requiredConfirmation": {
+      "type": "boolean",
+      "const": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending_confirmation", "confirmed", "rejected"]
+    }
+  }
+}

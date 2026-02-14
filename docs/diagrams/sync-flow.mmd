@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant App as MobileApp
+    participant Queue as LocalSyncQueue
+    participant API as SyncAPI
+    participant DB as ServerStore
+
+    App->>Queue: Enqueue local upserts
+    App->>API: POST /v1/sync/batch (syncId)
+    API->>DB: Persist idempotently
+    DB-->>API: accepted + conflicts + cursor
+    API-->>App: SyncBatchResponse
+    App->>Queue: Mark accepted entries synced
+    App-->>App: Apply downstream playbook/version updates

@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph Device[Mobile Device Offline-First]
+        UI[Mobile UI\nHome/New Observation/Recommendation/Playbook]
+        ASR[On-device ASR]
+        EX[Schema-constrained Extractor]
+        RE[Recommendation Engine]
+        PB[(Playbook Store)]
+        WX[(WeatherFeatures Store)]
+        TR[(Trace Store)]
+    end
+
+    subgraph Seams[Connector Seams]
+        Sorcerer[Vertical Profile Connector\nDemo Mode / Live Mode]
+        Morph[Patch Apply Contract]
+    end
+
+    subgraph OptionalCloud[Optional Backend]
+        SyncAPI[Sync API]
+        CloudDB[(Server Storage)]
+    end
+
+    UI --> ASR
+    UI --> EX
+    EX --> PB
+    EX --> RE
+    WX --> RE
+    PB --> RE
+    RE --> UI
+    UI --> TR
+    Sorcerer --> WX
+    UI --> Morph
+    UI -. optional .-> SyncAPI
+    SyncAPI --> CloudDB

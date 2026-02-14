@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    participant Scout
+    participant App as MobileApp
+    participant ASR as OnDeviceASR
+    participant X as Extractor
+    participant V as SchemaValidator
+    participant W as WeatherSeam
+    participant P as PlaybookStore
+    participant R as RecommendationEngine
+
+    Scout->>App: Start New Observation
+    alt Voice path
+        Scout->>App: Record mildew note
+        App->>ASR: Transcribe audio
+        ASR-->>App: transcript + confidence
+    else Typed fallback
+        Scout->>App: Enter note text manually
+    end
+
+    App->>X: Extract structured fields
+    X-->>App: Observation draft (obs_20260211_0001)
+    App->>V: Validate Observation schema
+    V-->>App: valid=true
+
+    App->>W: Load WeatherFeatures (wxf_20260211_demo_01)
+    W-->>App: derived weather features
+    App->>P: Load active Playbook (pbk_yolo_grape v3)
+    P-->>App: playbook rules
+
+    App->>R: Generate recommendation
+    R-->>App: rec_20260211_0001 + timing window
+    Scout->>App: Confirm & Log
+    App-->>Scout: Logged and shareable payload

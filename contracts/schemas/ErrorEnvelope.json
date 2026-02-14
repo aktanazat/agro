@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fieldscout-copilot/contracts/schemas/ErrorEnvelope.json",
+  "title": "ErrorEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "timestamp", "error"],
+  "properties": {
+    "requestId": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable", "traceId"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "VALIDATION_ERROR",
+            "AUTH_REQUIRED",
+            "FORBIDDEN",
+            "NOT_FOUND",
+            "CONFLICT",
+            "IDEMPOTENCY_CONFLICT",
+            "PLAYBOOK_PATCH_PATH_NOT_ALLOWED",
+            "PLAYBOOK_VERSION_MISMATCH",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "traceId": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

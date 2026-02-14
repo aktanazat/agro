@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fieldscout-copilot/contracts/schemas/Device.json",
+  "title": "Device",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deviceId",
+    "platform",
+    "appVersion",
+    "modelPackageVersion",
+    "offlineModeEnabled",
+    "updatedAt"
+  ],
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "pattern": "^dev_[a-z0-9_]+$"
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["ios", "android"]
+    },
+    "appVersion": {
+      "type": "string"
+    },
+    "modelPackageVersion": {
+      "type": "string"
+    },
+    "offlineModeEnabled": {
+      "type": "boolean"
+    },
+    "lastSyncAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

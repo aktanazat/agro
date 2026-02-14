@@ -1,0 +1,731 @@
+openapi: 3.0.3
+info:
+  title: FieldScout Copilot API
+  version: 1.0.0
+  description: |
+    Optional backend contracts for FieldScout Copilot.
+    Core demo loop is offline-first and does not require this API.
+servers:
+  - url: https://api.fieldscout.local
+    description: Placeholder server
+security:
+  - DeviceToken: []
+  - BearerAuth: []
+tags:
+  - name: Health
+  - name: Observations
+  - name: Recommendations
+  - name: Playbooks
+  - name: Sync
+paths:
+  /v1/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    timestamp: '2026-02-11T18:20:00Z'
+                    version: '1.0.0'
+
+  /v1/observations:
+    post:
+      tags: [Observations]
+      summary: Create observation
+      operationId: createObservation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Observation'
+            examples:
+              mildewObservation:
+                value:
+                  observationId: obs_20260211_0001
+                  deviceId: dev_ios_001
+                  createdAt: '2026-02-11T18:20:35Z'
+                  captureMode: voice
+                  rawNoteText: Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.
+                  transcription:
+                    text: Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.
+                    source: on_device_asr
+                    confidence: 0.93
+                  extraction:
+                    crop: grape
+                    variety: chardonnay
+                    fieldBlock: Block 7
+                    issue: powdery_mildew
+                    severity: moderate
+                    symptoms:
+                      - white powder on upper leaf surfaces
+                      - slight musty odor
+                    observationTime: '2026-02-11T18:20:30Z'
+                  normalization:
+                    leafWetness: dry
+                    windEstimateKph: 8
+                  location:
+                    lat: 38.5449
+                    lon: -121.7405
+                  status: confirmed
+                  schemaVersion: 1.0.0
+                  deterministicChecksum: sha256:A1B2C3D4E5F6
+      responses:
+        '201':
+          description: Observation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+
+  /v1/observations/{observationId}:
+    get:
+      tags: [Observations]
+      summary: Get observation by id
+      operationId: getObservation
+      parameters:
+        - $ref: '#/components/parameters/ObservationId'
+      responses:
+        '200':
+          description: Observation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/recommendations:generate:
+    post:
+      tags: [Recommendations]
+      summary: Generate recommendation for an observation
+      operationId: generateRecommendation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRecommendationRequest'
+            examples:
+              mildewGenerate:
+                value:
+                  observationId: obs_20260211_0001
+                  playbookId: pbk_yolo_grape
+                  playbookVersion: 3
+                  weatherFeaturesId: wxf_20260211_demo_01
+                  requestedAt: '2026-02-11T18:20:50Z'
+      responses:
+        '200':
+          description: Recommendation generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendation'
+              examples:
+                mildewRecommendation:
+                  value:
+                    recommendationId: rec_20260211_0001
+                    observationId: obs_20260211_0001
+                    playbookId: pbk_yolo_grape
+                    playbookVersion: 3
+                    weatherFeaturesId: wxf_20260211_demo_01
+                    generatedAt: '2026-02-11T18:20:52Z'
+                    issue: powdery_mildew
+                    severity: moderate
+                    action: Apply sulfur-based contact spray in affected block.
+                    rationale:
+                      - avoid_inversion
+                      - high_humidity_persistence
+                    timingWindow:
+                      startAt: '2026-02-11T21:00:00-08:00'
+                      endAt: '2026-02-12T00:30:00-08:00'
+                      localTimezone: America/Los_Angeles
+                      confidence: 0.82
+                      drivers:
+                        - inversionPresent=false
+                        - humidityLayering=uniform_humid
+                        - windShearProxy=moderate
+                    riskFlags: []
+                    requiredConfirmation: true
+                    status: pending_confirmation
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/recommendations/{recommendationId}:
+    get:
+      tags: [Recommendations]
+      summary: Get recommendation by id
+      operationId: getRecommendation
+      parameters:
+        - $ref: '#/components/parameters/RecommendationId'
+      responses:
+        '200':
+          description: Recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendation'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/playbooks/{playbookId}:
+    get:
+      tags: [Playbooks]
+      summary: Get active playbook
+      operationId: getPlaybook
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+      responses:
+        '200':
+          description: Playbook
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playbook'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/playbooks/{playbookId}/patches:apply:
+    post:
+      tags: [Playbooks]
+      summary: Validate and apply bounded playbook patch
+      operationId: applyPlaybookPatch
+      parameters:
+        - $ref: '#/components/parameters/PlaybookId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybookPatch'
+            examples:
+              tightenWindConstraint:
+                value:
+                  patchId: pch_20260211_0001
+                  playbookId: pbk_yolo_grape
+                  baseVersion: 3
+                  requestedByDeviceId: dev_ios_001
+                  requestedAt: '2026-02-11T18:21:12Z'
+                  reason: Tighten spray wind limit for tonight
+                  operations:
+                    - op: replace
+                      path: /rules/rule_pm_moderate/constraints/maxWindKph
+                      value: 10
+                      justification: Local gusts are increasing
+      responses:
+        '200':
+          description: Patch apply result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatchApplyResult'
+              examples:
+                applied:
+                  value:
+                    patchId: pch_20260211_0001
+                    playbookId: pbk_yolo_grape
+                    oldVersion: 3
+                    newVersion: 4
+                    status: applied
+                    validationErrors: []
+                    recomputedRecommendationId: rec_20260211_0002
+                    appliedAt: '2026-02-11T18:21:14Z'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/sync/batch:
+    post:
+      tags: [Sync]
+      summary: Bidirectional sync batch
+      operationId: syncBatch
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncBatchRequest'
+            examples:
+              syncRequest:
+                value:
+                  syncId: sync_20260211_0001
+                  requestedAt: '2026-02-11T18:22:00Z'
+                  device:
+                    deviceId: dev_ios_001
+                    platform: ios
+                    appVersion: 0.1.0
+                    modelPackageVersion: q4_2026_02
+                    offlineModeEnabled: true
+                    lastSyncAt: null
+                    updatedAt: '2026-02-11T18:19:00Z'
+                  lastKnownServerCursor: cur_20260211_0000
+                  upserts:
+                    observations:
+                      - observationId: obs_20260211_0001
+                        deviceId: dev_ios_001
+                        createdAt: '2026-02-11T18:20:35Z'
+                        captureMode: voice
+                        rawNoteText: Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.
+                        transcription:
+                          text: Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.
+                          source: on_device_asr
+                          confidence: 0.93
+                        extraction:
+                          crop: grape
+                          variety: chardonnay
+                          fieldBlock: Block 7
+                          issue: powdery_mildew
+                          severity: moderate
+                          symptoms:
+                            - white powder on upper leaf surfaces
+                            - slight musty odor
+                          observationTime: '2026-02-11T18:20:30Z'
+                        normalization:
+                          leafWetness: dry
+                          windEstimateKph: 8
+                        location:
+                          lat: 38.5449
+                          lon: -121.7405
+                        status: logged
+                        schemaVersion: 1.0.0
+                        deterministicChecksum: sha256:A1B2C3D4E5F6
+                    recommendations:
+                      - recommendationId: rec_20260211_0002
+                        observationId: obs_20260211_0001
+                        playbookId: pbk_yolo_grape
+                        playbookVersion: 4
+                        weatherFeaturesId: wxf_20260211_demo_01
+                        generatedAt: '2026-02-11T18:21:14Z'
+                        issue: powdery_mildew
+                        severity: moderate
+                        action: Apply sulfur-based contact spray in affected block.
+                        rationale:
+                          - avoid_inversion
+                          - high_humidity_persistence
+                          - tighter_wind_constraint
+                        timingWindow:
+                          startAt: '2026-02-11T21:15:00-08:00'
+                          endAt: '2026-02-11T23:30:00-08:00'
+                          localTimezone: America/Los_Angeles
+                          confidence: 0.79
+                          drivers:
+                            - maxWindKph=10
+                            - inversionPresent=false
+                            - windShearProxy=moderate
+                        riskFlags: []
+                        requiredConfirmation: true
+                        status: confirmed
+                    playbookPatches:
+                      - patchId: pch_20260211_0001
+                        playbookId: pbk_yolo_grape
+                        baseVersion: 3
+                        requestedByDeviceId: dev_ios_001
+                        requestedAt: '2026-02-11T18:21:12Z'
+                        reason: Tighten spray wind limit for tonight
+                        operations:
+                          - op: replace
+                            path: /rules/rule_pm_moderate/constraints/maxWindKph
+                            value: 10
+                            justification: Local gusts are increasing
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncBatchResponse'
+              examples:
+                syncResponse:
+                  value:
+                    syncId: sync_20260211_0001
+                    acceptedAt: '2026-02-11T18:22:01Z'
+                    serverCursor: cur_20260211_0001
+                    acceptedCounts:
+                      observations: 1
+                      recommendations: 1
+                      playbookPatches: 1
+                    conflicts: []
+                    downstream:
+                      playbook:
+                        playbookId: pbk_yolo_grape
+                        version: 4
+                        updatedAt: '2026-02-11T18:21:14Z'
+                      observations: []
+                      recommendations: []
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/AuthRequired'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    DeviceToken:
+      type: apiKey
+      in: header
+      name: X-Device-Token
+      description: Hackathon placeholder device token.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Post-hack auth placeholder.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Required for create/apply/sync write operations.
+    ObservationId:
+      name: observationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^obs_[0-9]{8}_[0-9]{4}$'
+    RecommendationId:
+      name: recommendationId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^rec_[0-9]{8}_[0-9]{4}$'
+    PlaybookId:
+      name: playbookId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^pbk_[a-z0-9_]+$'
+
+  responses:
+    ValidationError:
+      description: Request did not pass contract validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            example:
+              value:
+                requestId: req_20260211_0101
+                timestamp: '2026-02-11T18:22:05Z'
+                error:
+                  code: VALIDATION_ERROR
+                  message: Invalid field `extraction.issue`.
+                  retryable: false
+                  traceId: trace_20260211_demo_01
+                  details:
+                    field: extraction.issue
+    AuthRequired:
+      description: Authentication required.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            example:
+              value:
+                requestId: req_20260211_0102
+                timestamp: '2026-02-11T18:22:07Z'
+                error:
+                  code: AUTH_REQUIRED
+                  message: Missing device token.
+                  retryable: false
+                  traceId: trace_20260211_demo_01
+                  details: {}
+    NotFound:
+      description: Entity not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            example:
+              value:
+                requestId: req_20260211_0103
+                timestamp: '2026-02-11T18:22:09Z'
+                error:
+                  code: NOT_FOUND
+                  message: Entity not found.
+                  retryable: false
+                  traceId: trace_20260211_demo_01
+                  details: {}
+    Conflict:
+      description: Version or state conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            versionMismatch:
+              value:
+                requestId: req_20260211_0104
+                timestamp: '2026-02-11T18:22:10Z'
+                error:
+                  code: PLAYBOOK_VERSION_MISMATCH
+                  message: baseVersion 3 does not match active version 4.
+                  retryable: true
+                  traceId: trace_20260211_demo_01
+                  details:
+                    activeVersion: 4
+    IdempotencyConflict:
+      description: Duplicate idempotency key with different payload.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            duplicate:
+              value:
+                requestId: req_20260211_0105
+                timestamp: '2026-02-11T18:22:12Z'
+                error:
+                  code: IDEMPOTENCY_CONFLICT
+                  message: Idempotency key already used with a different request body.
+                  retryable: false
+                  traceId: trace_20260211_demo_01
+                  details: {}
+
+  schemas:
+    Observation:
+      $ref: './schemas/Observation.json'
+    Recommendation:
+      $ref: './schemas/Recommendation.json'
+    Playbook:
+      $ref: './schemas/Playbook.json'
+    PlaybookPatch:
+      $ref: './schemas/PlaybookPatch.json'
+    Device:
+      $ref: './schemas/Device.json'
+    WeatherFeatures:
+      $ref: './schemas/WeatherFeatures.json'
+    ErrorEnvelope:
+      $ref: './schemas/ErrorEnvelope.json'
+
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, timestamp, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    GenerateRecommendationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [observationId, playbookId, playbookVersion, weatherFeaturesId, requestedAt]
+      properties:
+        observationId:
+          type: string
+          pattern: '^obs_[0-9]{8}_[0-9]{4}$'
+        playbookId:
+          type: string
+          pattern: '^pbk_[a-z0-9_]+$'
+        playbookVersion:
+          type: integer
+          minimum: 1
+        weatherFeaturesId:
+          type: string
+          pattern: '^wxf_[0-9]{8}_[a-z0-9_]+$'
+        requestedAt:
+          type: string
+          format: date-time
+
+    PatchApplyResult:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          patchId,
+          playbookId,
+          oldVersion,
+          newVersion,
+          status,
+          validationErrors,
+          recomputedRecommendationId,
+          appliedAt
+        ]
+      properties:
+        patchId:
+          type: string
+          pattern: '^pch_[0-9]{8}_[0-9]{4}$'
+        playbookId:
+          type: string
+          pattern: '^pbk_[a-z0-9_]+$'
+        oldVersion:
+          type: integer
+          minimum: 1
+        newVersion:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [applied, rejected]
+        validationErrors:
+          type: array
+          items:
+            type: string
+        recomputedRecommendationId:
+          type: string
+          nullable: true
+        appliedAt:
+          type: string
+          format: date-time
+
+    SyncBatchRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [syncId, requestedAt, device, lastKnownServerCursor, upserts]
+      properties:
+        syncId:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        device:
+          $ref: '#/components/schemas/Device'
+        lastKnownServerCursor:
+          type: string
+        upserts:
+          type: object
+          additionalProperties: false
+          required: [observations, recommendations, playbookPatches]
+          properties:
+            observations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Observation'
+            recommendations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Recommendation'
+            playbookPatches:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlaybookPatch'
+
+    SyncBatchResponse:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          syncId,
+          acceptedAt,
+          serverCursor,
+          acceptedCounts,
+          conflicts,
+          downstream
+        ]
+      properties:
+        syncId:
+          type: string
+        acceptedAt:
+          type: string
+          format: date-time
+        serverCursor:
+          type: string
+        acceptedCounts:
+          type: object
+          additionalProperties: false
+          required: [observations, recommendations, playbookPatches]
+          properties:
+            observations:
+              type: integer
+              minimum: 0
+            recommendations:
+              type: integer
+              minimum: 0
+            playbookPatches:
+              type: integer
+              minimum: 0
+        conflicts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [entityType, entityId, code, message]
+            properties:
+              entityType:
+                type: string
+                enum: [observation, recommendation, playbookPatch]
+              entityId:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+        downstream:
+          type: object
+          additionalProperties: false
+          required: [playbook, observations, recommendations]
+          properties:
+            playbook:
+              type: object
+              additionalProperties: false
+              required: [playbookId, version, updatedAt]
+              properties:
+                playbookId:
+                  type: string
+                  pattern: '^pbk_[a-z0-9_]+$'
+                version:
+                  type: integer
+                  minimum: 1
+                updatedAt:
+                  type: string
+                  format: date-time
+            observations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Observation'
+            recommendations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Recommendation'

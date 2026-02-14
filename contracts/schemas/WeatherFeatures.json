@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fieldscout-copilot/contracts/schemas/WeatherFeatures.json",
+  "title": "WeatherFeatures",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "weatherFeaturesId",
+    "sourceMode",
+    "profileTime",
+    "location",
+    "inversionPresent",
+    "humidityLayering",
+    "windShearProxy",
+    "sprayWindowScore",
+    "diseaseRiskScore",
+    "heatStressScore",
+    "notes"
+  ],
+  "properties": {
+    "weatherFeaturesId": {
+      "type": "string",
+      "pattern": "^wxf_[0-9]{8}_[a-z0-9_]+$"
+    },
+    "sourceMode": {
+      "type": "string",
+      "enum": ["demo", "live", "none"]
+    },
+    "profileTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        }
+      }
+    },
+    "inversionPresent": {
+      "type": "boolean"
+    },
+    "humidityLayering": {
+      "type": "string",
+      "enum": ["dry_aloft_humid_surface", "uniform_humid", "uniform_dry", "unknown"]
+    },
+    "windShearProxy": {
+      "type": "string",
+      "enum": ["low", "moderate", "high", "unknown"]
+    },
+    "sprayWindowScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "diseaseRiskScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "heatStressScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
