@@ -1,10 +1,7 @@
 import { Ajv2020 } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { createRequire } from "module";
+import observationSchema from "../../contracts/schemas/Observation.json";
 import type { Observation, ValidationResult, FieldError } from "./types";
-
-const require = createRequire(import.meta.url);
-const observationSchema = require("../../../contracts/schemas/Observation.json");
 
 const ajv = new Ajv2020({ allErrors: true });
 addFormats(ajv);

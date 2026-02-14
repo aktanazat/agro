@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fieldscout-copilot/contracts/schemas/ExtractionAdapter.json",
+  "title": "ExtractionAdapter",
+  "description": "Person A -> Person B -> Person C extraction pipeline contract",
+  "definitions": {
+    "CapturePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observationId", "captureMode", "rawNoteText", "transcription"],
+      "properties": {
+        "observationId": {
+          "type": "string",
+          "pattern": "^obs_[0-9]{8}_[0-9]{4}$"
+        },
+        "captureMode": {
+          "type": "string",
+          "enum": ["voice", "typed"]
+        },
+        "rawNoteText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transcription": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "source", "confidence"],
+          "properties": {
+            "text": { "type": "string" },
+            "source": {
+              "type": "string",
+              "enum": ["on_device_asr", "manual_typed", "none"]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "ExtractionAdapterResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["ok", "observation", "trace"],
+          "properties": {
+            "ok": { "const": true },
+            "observation": { "$ref": "Observation.json" },
+            "trace": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/TraceEvent" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["ok", "error", "gating", "draft", "trace"],
+          "properties": {
+            "ok": { "const": false },
+            "error": { "$ref": "ErrorEnvelope.json" },
+            "gating": { "$ref": "#/definitions/GatingResult" },
+            "draft": { "$ref": "Observation.json" },
+            "trace": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/TraceEvent" }
+            }
+          }
+        }
+      ]
+    },
+    "GatingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reason", "fieldErrors"],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["auto_confirm", "manual_review", "blocked"]
+        },
+        "reason": { "type": "string" },
+        "fieldErrors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["field", "message"],
+            "properties": {
+              "field": { "type": "string" },
+              "message": { "type": "string" },
+              "value": {}
+            }
+          }
+        }
+      }
+    },
+    "TraceEvent": {
+      "type": "object",
+      "required": ["traceId", "stage", "startedAt", "endedAt", "durationMs", "status"],
+      "properties": {
+        "traceId": { "type": "string" },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "capture_received",
+            "transcription_resolved",
+            "extraction_complete",
+            "normalization_complete",
+            "validation_complete",
+            "gating_complete",
+            "observation_ready"
+          ]
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "error", "fallback"]
+        },
+        "observationId": { "type": "string" },
+        "metadata": { "type": "object" }
+      }
+    }
+  }
+}
