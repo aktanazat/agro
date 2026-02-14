@@ -24,9 +24,9 @@ export class LiveSource implements DataSource {
 
   constructor(baseUrl = import.meta.env.VITE_API_BASE_URL ?? "/v1") {
     this.baseUrl = baseUrl;
-    this.apiKey = import.meta.env.VITE_SQLITECLOUD_API_KEY ?? "";
-    this.apiKeyHeader = import.meta.env.VITE_SQLITECLOUD_API_KEY_HEADER ?? "x-api-key";
-    this.apiKeyPrefix = import.meta.env.VITE_SQLITECLOUD_API_KEY_PREFIX ?? "";
+    this.apiKey = import.meta.env.VITE_API_KEY ?? "";
+    this.apiKeyHeader = import.meta.env.VITE_API_KEY_HEADER ?? "x-api-key";
+    this.apiKeyPrefix = import.meta.env.VITE_API_KEY_PREFIX ?? "";
     this.deviceToken = import.meta.env.VITE_DEVICE_TOKEN ?? "";
   }
 

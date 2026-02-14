@@ -24,6 +24,7 @@ class AppState: ObservableObject {
     private let lastSyncAtDefaultsKey = "FieldScoutCopilot.LastSyncAt"
     private let fallbackTraceId = "trace_obs_20260211_0001"
     private var isSyncInFlight = false
+    private var refreshTimer: Timer?
 
     @Published var isOfflineMode: Bool = ProcessInfo.processInfo.environment["FIELD_SCOUT_OFFLINE_MODE"] == "true"
     @Published var deviceId: String = "dev_ios_001"
@@ -69,6 +70,7 @@ class AppState: ObservableObject {
         }
         hydrateFromLocalStore()
         triggerSyncIfNeeded()
+        startPeriodicRefresh()
     }
 
     /// Kicks off model loading and updates published state when done.
@@ -186,19 +188,44 @@ class AppState: ObservableObject {
     }
 
     private func triggerSyncIfNeeded() {
-        guard !isOfflineMode else { return }
-        guard !isSyncInFlight else { return }
+        guard !isOfflineMode, !isSyncInFlight else { return }
 
         let pendingItems = store.pendingSyncItems()
         guard !pendingItems.isEmpty else { return }
-        guard let request = makeSyncRequest(from: pendingItems) else { return }
 
+        var observations: [Observation] = []
+        var recommendations: [Recommendation] = []
+        for item in pendingItems {
+            switch item.entityType {
+            case .observation:
+                if let o = store.fetchObservation(observationId: item.entityId) { observations.append(o) }
+            case .recommendation:
+                if let r = store.fetchRecommendation(recommendationId: item.entityId) { recommendations.append(r) }
+            case .playbookPatch:
+                continue
+            }
+        }
+        guard !observations.isEmpty || !recommendations.isEmpty else { return }
+
+        let request = buildSyncRequest(observations: observations, recommendations: recommendations)
+        performSync(request: request, pendingItems: pendingItems)
+    }
+
+    /// Pull-only sync with empty upserts to fetch downstream data from the server.
+    private func pullDownstream() {
+        guard !isOfflineMode, !isSyncInFlight else { return }
+        let request = buildSyncRequest(observations: [], recommendations: [])
+        performSync(request: request, pendingItems: [])
+    }
+
+    private func performSync(request: SyncBatchRequest, pendingItems: [SyncQueueItem]) {
         isSyncInFlight = true
         Task {
             do {
                 let response = try await syncService.syncBatch(request, idempotencyKey: request.syncId)
                 await MainActor.run {
                     pendingItems.forEach { store.markSynced(entityId: $0.entityId) }
+                    mergeDownstream(response.downstream)
                     UserDefaults.standard.set(response.serverCursor, forKey: syncCursorDefaultsKey)
                     UserDefaults.standard.set(response.acceptedAt, forKey: lastSyncAtDefaultsKey)
                     isSyncInFlight = false
@@ -213,46 +240,42 @@ class AppState: ObservableObject {
         }
     }
 
-    private func makeSyncRequest(from items: [SyncQueueItem]) -> SyncBatchRequest? {
-        var observations: [Observation] = []
-        var recommendations: [Recommendation] = []
+    private func mergeDownstream(_ downstream: SyncDownstream) {
+        for observation in downstream.observations {
+            store.saveObservation(observation, fromServer: true)
+        }
+        for recommendation in downstream.recommendations {
+            store.saveRecommendation(recommendation, fromServer: true)
+        }
+        if downstream.playbook.version > activePlaybookVersion {
+            activePlaybookVersion = downstream.playbook.version
+        }
+    }
 
-        for item in items {
-            switch item.entityType {
-            case .observation:
-                if let observation = store.fetchObservation(observationId: item.entityId) {
-                    observations.append(observation)
-                }
-            case .recommendation:
-                if let recommendation = store.fetchRecommendation(recommendationId: item.entityId) {
-                    recommendations.append(recommendation)
-                }
-            case .playbookPatch:
-                continue
+    private func startPeriodicRefresh() {
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pullDownstream()
             }
         }
+    }
 
-        if observations.isEmpty && recommendations.isEmpty {
-            return nil
-        }
-
+    private func buildSyncRequest(observations: [Observation], recommendations: [Recommendation]) -> SyncBatchRequest {
         let requestedAt = ISO8601DateFormatter().string(from: Date())
         let cursor = UserDefaults.standard.string(forKey: syncCursorDefaultsKey) ?? "cur_20260211_0000"
         let lastSyncAt = UserDefaults.standard.string(forKey: lastSyncAtDefaultsKey)
-        let device = Device(
-            deviceId: deviceId,
-            platform: .ios,
-            appVersion: appVersionString(),
-            modelPackageVersion: "q4_2026_02",
-            offlineModeEnabled: isOfflineMode,
-            lastSyncAt: lastSyncAt,
-            updatedAt: requestedAt
-        )
-
         return SyncBatchRequest(
             syncId: generateSyncId(),
             requestedAt: requestedAt,
-            device: device,
+            device: Device(
+                deviceId: deviceId,
+                platform: .ios,
+                appVersion: appVersionString(),
+                modelPackageVersion: "q4_2026_02",
+                offlineModeEnabled: isOfflineMode,
+                lastSyncAt: lastSyncAt,
+                updatedAt: requestedAt
+            ),
             lastKnownServerCursor: cursor,
             upserts: SyncUpserts(
                 observations: observations,

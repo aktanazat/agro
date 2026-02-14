@@ -23,7 +23,7 @@ class LocalStore {
     
     // MARK: - Observations
     
-    func saveObservation(_ observation: Observation) {
+    func saveObservation(_ observation: Observation, fromServer: Bool = false) {
         queue.sync {
             guard let payload = encodedString(observation) else { return }
             let sql = """
@@ -39,7 +39,9 @@ class LocalStore {
             bindText(payload, to: statement, index: 4)
             
             guard sqlite3_step(statement) == SQLITE_DONE else { return }
-            enqueueSyncItem(entityType: .observation, entityId: observation.observationId)
+            if !fromServer {
+                enqueueSyncItem(entityType: .observation, entityId: observation.observationId)
+            }
         }
     }
     
@@ -83,7 +85,7 @@ class LocalStore {
     
     // MARK: - Recommendations
     
-    func saveRecommendation(_ recommendation: Recommendation) {
+    func saveRecommendation(_ recommendation: Recommendation, fromServer: Bool = false) {
         queue.sync {
             guard let payload = encodedString(recommendation) else { return }
             let sql = """
@@ -99,7 +101,9 @@ class LocalStore {
             bindText(payload, to: statement, index: 4)
             
             guard sqlite3_step(statement) == SQLITE_DONE else { return }
-            enqueueSyncItem(entityType: .recommendation, entityId: recommendation.recommendationId)
+            if !fromServer {
+                enqueueSyncItem(entityType: .recommendation, entityId: recommendation.recommendationId)
+            }
         }
     }
     
