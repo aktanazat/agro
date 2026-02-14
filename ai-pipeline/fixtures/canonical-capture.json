@@ -1,0 +1,10 @@
+{
+  "observationId": "obs_20260211_0001",
+  "captureMode": "voice",
+  "rawNoteText": "Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.",
+  "transcription": {
+    "text": "Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.",
+    "source": "on_device_asr",
+    "confidence": 0.93
+  }
+}

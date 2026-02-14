@@ -1,0 +1,132 @@
+[
+  {
+    "caseId": "eval_01",
+    "noteText": "Block 7 Chardonnay. I see white powder on upper leaf surfaces, moderate spread after two warm days. Leaves are dry right now, slight musty odor, wind feels light. Log this and give me a spray window tonight.",
+    "captureMode": "voice",
+    "confidence": 0.93,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 7",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "symptoms": ["white powder on upper leaf surfaces", "slight musty odor"]
+    }
+  },
+  {
+    "caseId": "eval_02",
+    "noteText": "Block 3 Pinot Noir. A few small white spots just starting on lower leaves, looks very early stage. Dry canopy, no wind. Possible early powdery mildew.",
+    "captureMode": "voice",
+    "confidence": 0.91,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 3",
+      "issue": "powdery_mildew",
+      "severity": "low",
+      "symptoms": ["small white spots on lower leaves"]
+    }
+  },
+  {
+    "caseId": "eval_03",
+    "noteText": "Block 12 Cabernet. Heavy powdery mildew everywhere, white coating covering most leaves and some clusters. Severe spread, leaves curling. Dry, calm conditions.",
+    "captureMode": "voice",
+    "confidence": 0.95,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 12",
+      "issue": "powdery_mildew",
+      "severity": "high",
+      "symptoms": ["white coating covering most leaves and some clusters", "leaves curling"]
+    }
+  },
+  {
+    "caseId": "eval_04",
+    "noteText": "Block 5 Chardonnay. Midday leaf curl and wilting on south-facing rows, heat stress from the hot afternoon. Temperature feels around 38C. Leaves are dry, moderate wind.",
+    "captureMode": "voice",
+    "confidence": 0.89,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 5",
+      "issue": "heat_stress",
+      "severity": "moderate",
+      "symptoms": ["midday leaf curl", "wilting on south-facing rows"]
+    }
+  },
+  {
+    "caseId": "eval_05",
+    "noteText": "Block 9 Merlot. Severe wilting across entire block, leaves are scorched and brown at edges. Extreme heat damage after three consecutive days above 40C. Dry, strong wind.",
+    "captureMode": "voice",
+    "confidence": 0.90,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 9",
+      "issue": "heat_stress",
+      "severity": "high",
+      "symptoms": ["severe wilting across entire block", "leaves scorched and brown at edges"]
+    }
+  },
+  {
+    "caseId": "eval_06",
+    "noteText": "I see something wrong with the vines but not sure what it is. Leaves look a bit off.",
+    "captureMode": "voice",
+    "confidence": 0.72,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "unknown",
+      "issue": "other",
+      "severity": "low",
+      "symptoms": ["leaves look a bit off"]
+    }
+  },
+  {
+    "caseId": "eval_07",
+    "noteText": "Block 4 Chardonnay. Some white patches that could be moderate or maybe high severity. Powder on leaf surfaces but not everywhere. Dry conditions, light wind.",
+    "captureMode": "voice",
+    "confidence": 0.88,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 4",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "symptoms": ["white patches", "powder on leaf surfaces"]
+    }
+  },
+  {
+    "caseId": "eval_08",
+    "noteText": "Block 2 Sauvignon Blanc. Powdery mildew on upper canopy, moderate spread. Also noticed the drip line might be clogged in row 14. Dry leaves, calm wind.",
+    "captureMode": "voice",
+    "confidence": 0.87,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 2",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "symptoms": ["powdery mildew on upper canopy"]
+    }
+  },
+  {
+    "caseId": "eval_09",
+    "noteText": "Block 6 Chardonnay. White powder on upper leaf surfaces, moderate spread. Leaves dry, slight breeze.",
+    "captureMode": "typed",
+    "confidence": 1.0,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 6",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "symptoms": ["white powder on upper leaf surfaces"]
+    }
+  },
+  {
+    "caseId": "eval_10",
+    "noteText": "uh... something... block... yeah the grapes look bad I think",
+    "captureMode": "voice",
+    "confidence": 0.45,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "unknown",
+      "issue": "other",
+      "severity": "low",
+      "symptoms": ["grapes look bad"]
+    }
+  }
+]
