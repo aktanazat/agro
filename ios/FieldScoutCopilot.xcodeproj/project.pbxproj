@@ -13,6 +13,7 @@
 		A1000004 /* NewObservationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004 /* NewObservationView.swift */; };
 		A1000005 /* ReviewEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* ReviewEditView.swift */; };
 		A1000006 /* RecommendationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000006 /* RecommendationView.swift */; };
+		A1000022 /* GenerateRecommendationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000022 /* GenerateRecommendationView.swift */; };
 		A1000007 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007 /* HistoryView.swift */; };
 		A1000008 /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008 /* ShareView.swift */; };
 		A1000009 /* PlaybookEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000009 /* PlaybookEditorView.swift */; };
@@ -42,6 +43,7 @@
 		A2000009 /* PlaybookEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybookEditorView.swift; sourceTree = "<group>"; };
 		A2000010 /* TraceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceView.swift; sourceTree = "<group>"; };
 		A2000011 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A2000022 /* GenerateRecommendationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateRecommendationView.swift; sourceTree = "<group>"; };
 		A2000012 /* Protocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protocols.swift; sourceTree = "<group>"; };
 		A2000013 /* ExtractionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractionService.swift; sourceTree = "<group>"; };
 		A2000014 /* RecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
@@ -102,6 +104,7 @@
 			children = (
 				A2000003 /* HomeView.swift */,
 				A2000004 /* NewObservationView.swift */,
+				A2000022 /* GenerateRecommendationView.swift */,
 				A2000005 /* ReviewEditView.swift */,
 				A2000006 /* RecommendationView.swift */,
 				A2000007 /* HistoryView.swift */,
@@ -240,6 +243,7 @@
 				A1000008 /* ShareView.swift in Sources */,
 				A1000009 /* PlaybookEditorView.swift in Sources */,
 				A1000010 /* TraceView.swift in Sources */,
+				A1000022 /* GenerateRecommendationView.swift in Sources */,
 				A1000011 /* Models.swift in Sources */,
 				A1000012 /* Protocols.swift in Sources */,
 				A1000013 /* ExtractionService.swift in Sources */,
@@ -384,6 +388,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FieldScoutCopilot/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FieldScout needs microphone access for voice observations";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FieldScout uses speech recognition for live transcription";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -414,6 +419,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FieldScoutCopilot/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FieldScout needs microphone access for voice observations";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "FieldScout uses speech recognition for live transcription";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

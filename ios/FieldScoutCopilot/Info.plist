@@ -4,6 +4,8 @@
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>FieldScout needs microphone access for voice observations</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FieldScout uses speech recognition for live transcription of your observations</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
