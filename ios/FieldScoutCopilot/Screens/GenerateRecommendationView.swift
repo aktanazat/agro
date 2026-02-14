@@ -171,6 +171,7 @@ struct GenerateRecommendationView: View {
             )
 
             observation = obs
+            appState.saveDraftObservation(obs)
 
             // Update display fields from the real extraction
             extractedIssue = obs.extraction.issue

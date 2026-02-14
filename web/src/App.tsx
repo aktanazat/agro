@@ -73,6 +73,23 @@ export default function App() {
     };
   }, [state.source]);
 
+  useEffect(() => {
+    if (!prefersLive || state.source.kind === "live") {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      loadFixtures(liveSource)
+        .then((data) => {
+          dispatch({ type: "SET_SOURCE", source: liveSource, liveMode: true });
+          dispatch({ type: "SET_DATA", ...data });
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [state.source]);
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center text-sm text-slate-400">

@@ -95,6 +95,12 @@ class AppState: ObservableObject {
         triggerSyncIfNeeded()
     }
 
+    func saveDraftObservation(_ observation: Observation) {
+        currentObservation = observation
+        store.saveObservation(observationWithStatus(observation, status: .draft))
+        triggerSyncIfNeeded()
+    }
+
     func confirmAndLog(observation: Observation, recommendation: Recommendation) {
         let loggedObservation = observationWithStatus(observation, status: .logged)
         let confirmedRecommendation = recommendationWithStatus(recommendation, status: .confirmed)
@@ -196,9 +202,11 @@ class AppState: ObservableObject {
                     UserDefaults.standard.set(response.serverCursor, forKey: syncCursorDefaultsKey)
                     UserDefaults.standard.set(response.acceptedAt, forKey: lastSyncAtDefaultsKey)
                     isSyncInFlight = false
+                    triggerSyncIfNeeded()
                 }
             } catch {
                 await MainActor.run {
+                    print("Sync failed: \(error)")
                     isSyncInFlight = false
                 }
             }
@@ -258,8 +266,7 @@ class AppState: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
         let date = formatter.string(from: Date())
-        let sequence = String(format: "%04d", Int(Date().timeIntervalSince1970) % 10000)
-        return "sync_\(date)_\(sequence)"
+        return "sync_\(date)_\(UUID().uuidString.lowercased())"
     }
 
     private func appVersionString() -> String {

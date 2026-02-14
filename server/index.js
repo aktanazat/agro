@@ -285,6 +285,9 @@ const server = createServer(async (req, res) => {
           VALUES (?, ?, ?, ?)
           `,
         ).run(body.syncId, requestHash, JSON.stringify(responseBody), nowIso());
+        console.log(
+          `[sync] ${body.syncId} observations=${observations.length} recommendations=${recommendations.length} patches=${playbookPatches.length}`,
+        );
 
         return { status: 200, body: responseBody };
       });
