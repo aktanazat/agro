@@ -3,33 +3,34 @@ import SwiftUI
 struct GenerateRecommendationView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) var dismiss
-    
+
     let rawNoteText: String
     let captureMode: CaptureMode
     let transcriptConfidence: Double
-    
+
     // Processing states
     @State private var currentStep: ProcessingStep = .analyzing
     @State private var observation: Observation?
     @State private var recommendation: Recommendation?
-    @State private var generatedObservationId = GenerateRecommendationView.generateEntityId(prefix: "obs")
-    
-    // Extracted fields
+    @State private var errorMessage: String?
+
+    // Extracted fields (derived from observation for display)
     @State private var extractedCrop: String = "Grape"
     @State private var extractedIssue: Issue = .powderyMildew
     @State private var extractedSeverity: Severity = .moderate
     @State private var extractedFieldBlock: String = ""
     @State private var extractedVariety: String?
-    
+
     @State private var showRawDetails = false
-    
+
     enum ProcessingStep {
         case analyzing
         case recommending
         case ready
         case confirmed
+        case error
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Pinned progress stepper — stays above scroll content
@@ -37,9 +38,9 @@ struct GenerateRecommendationView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
                 .background(Color(.systemBackground))
-            
+
             Divider()
-            
+
             ScrollView {
                 VStack(spacing: 20) {
                     // Original note (collapsible)
@@ -49,9 +50,23 @@ struct GenerateRecommendationView: View {
                         confidence: transcriptConfidence
                     )
                     .padding(.horizontal)
-                    
+
                     // Main content
-                    if currentStep == .analyzing {
+                    if currentStep == .error {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.title)
+                                .foregroundColor(.orange)
+                            Text(errorMessage ?? "Something went wrong")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") { startProcessing() }
+                                .font(.subheadline)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.vertical, 40)
+                    } else if currentStep == .analyzing {
                         AnalyzingOverlay()
                             .padding(.vertical, 40)
                     } else {
@@ -64,12 +79,12 @@ struct GenerateRecommendationView: View {
                             variety: extractedVariety
                         )
                         .padding(.horizontal)
-                        
+
                         if currentStep == .recommending {
                             GeneratingOverlay()
                                 .padding(.vertical, 20)
                         }
-                        
+
                         if let rec = recommendation {
                             // Recommendation Card
                             RecommendationResultCard(
@@ -82,11 +97,11 @@ struct GenerateRecommendationView: View {
                 }
                 .padding(.vertical)
             }
-            
+
             // Pinned bottom actions — always visible, never scroll away
             if currentStep == .ready || currentStep == .confirmed {
                 Divider()
-                
+
                 VStack(spacing: 12) {
                     if currentStep == .ready {
                         Button(action: confirmRecommendation) {
@@ -120,171 +135,106 @@ struct GenerateRecommendationView: View {
             startProcessing()
         }
     }
-    
-    // MARK: - Processing
-    
+
+    // MARK: - Processing (service-backed)
+
     private func startProcessing() {
         currentStep = .analyzing
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            performExtraction()
+        errorMessage = nil
+
+        Task {
+            await runPipeline()
         }
     }
-    
-    private func performExtraction() {
-        let lowercased = rawNoteText.lowercased()
-        
-        // Issue
-        if lowercased.contains("mildew") || lowercased.contains("powder") || lowercased.contains("white") {
-            extractedIssue = .powderyMildew
-        } else if lowercased.contains("heat") || lowercased.contains("stress") || lowercased.contains("wilt") {
-            extractedIssue = .heatStress
-        } else {
-            extractedIssue = .other
-        }
-        
-        // Severity
-        if lowercased.contains("severe") || lowercased.contains("heavy") || lowercased.contains("high") {
-            extractedSeverity = .high
-        } else if lowercased.contains("moderate") || lowercased.contains("medium") {
-            extractedSeverity = .moderate
-        } else {
-            extractedSeverity = .low
-        }
-        
-        // Field block
-        if let range = rawNoteText.range(of: #"[Bb]lock\s+(\d+|[A-Z])"#, options: .regularExpression) {
-            extractedFieldBlock = String(rawNoteText[range])
-        } else {
-            extractedFieldBlock = "Field Area"
-        }
-        
-        // Variety
-        let varieties = ["chardonnay", "cabernet", "merlot", "pinot", "zinfandel"]
-        for v in varieties {
-            if lowercased.contains(v) {
-                extractedVariety = v.capitalized
-                break
-            }
-        }
-        
-        // Build observation
-        let now = ISO8601DateFormatter().string(from: Date())
-        observation = Observation(
-            observationId: generatedObservationId,
-            deviceId: appState.deviceId,
-            createdAt: now,
-            captureMode: captureMode,
-            rawNoteText: rawNoteText,
-            transcription: ObservationTranscription(
-                text: rawNoteText,
-                source: captureMode == .voice ? .onDeviceAsr : .manualTyped,
-                confidence: transcriptConfidence
-            ),
-            extraction: ObservationExtraction(
-                crop: .grape,
-                variety: extractedVariety?.lowercased(),
-                fieldBlock: extractedFieldBlock,
-                issue: extractedIssue,
-                severity: extractedSeverity,
-                symptoms: extractSymptoms(from: rawNoteText),
-                observationTime: now
-            ),
-            normalization: ObservationNormalization(
-                temperatureC: nil,
-                leafWetness: lowercased.contains("dry") ? .dry : .unknown,
-                windEstimateKph: lowercased.contains("light") ? 8 : 12
-            ),
-            location: GeoPoint(lat: 38.5449, lon: -121.7405),
-            status: .draft,
-            schemaVersion: "1.0.0",
-            deterministicChecksum: "sha256:A1B2C3D4E5F6"
+
+    /// Full pipeline: extract → recommend, using real services from AppState.
+    @MainActor
+    private func runPipeline() async {
+        // --- Stage 1: Extraction via ExtractionServiceImpl ---
+        let extractionStart = Date()
+
+        let transcription = ObservationTranscription(
+            text: rawNoteText,
+            source: captureMode == .voice ? .onDeviceAsr : .manualTyped,
+            confidence: transcriptConfidence
         )
-        appState.recordTraceStage(
-            stage: "extracting",
-            durationMs: 14000,
-            relatedObservationId: observation?.observationId
-        )
-        
+
+        let location = GeoPoint(lat: 38.5449, lon: -121.7405)
+
+        do {
+            let obs = try await appState.extractionService.extractObservation(
+                from: rawNoteText,
+                captureMode: captureMode,
+                transcription: transcription,
+                deviceId: appState.deviceId,
+                location: location
+            )
+
+            observation = obs
+
+            // Update display fields from the real extraction
+            extractedIssue = obs.extraction.issue
+            extractedSeverity = obs.extraction.severity
+            extractedFieldBlock = obs.extraction.fieldBlock
+            extractedCrop = obs.extraction.crop == .grape ? "Grape" : "Grape"
+            extractedVariety = obs.extraction.variety?.capitalized
+
+            // Record extraction trace
+            appState.recordTraceStage(
+                stage: "extracting",
+                durationMs: Int(Date().timeIntervalSince(extractionStart) * 1000),
+                relatedObservationId: obs.observationId
+            )
+
+        } catch {
+            errorMessage = "Extraction failed: \(error.localizedDescription)"
+            currentStep = .error
+            return
+        }
+
+        // --- Stage 2: Load playbook + weather, then recommend ---
         currentStep = .recommending
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            generateRecommendation()
-        }
-    }
-    
-    private func extractSymptoms(from text: String) -> [String] {
-        var symptoms: [String] = []
-        let lowercased = text.lowercased()
-        
-        if lowercased.contains("powder") { symptoms.append("white powder on leaves") }
-        if lowercased.contains("musty") { symptoms.append("musty odor") }
-        if lowercased.contains("curl") { symptoms.append("leaf curling") }
-        if lowercased.contains("wilt") { symptoms.append("wilting") }
-        
-        return symptoms.isEmpty ? ["visual symptoms observed"] : symptoms
-    }
-    
-    private func generateRecommendation() {
-        let recommendationId = Self.generateEntityId(prefix: "rec")
-        let action: String
-        let startTime: String
-        let endTime: String
-        let rationale: [String]
-        
-        switch extractedIssue {
-        case .powderyMildew:
-            action = "Apply sulfur-based contact spray in affected block."
-            startTime = "2026-02-11T21:00:00-08:00"
-            endTime = "2026-02-12T00:30:00-08:00"
-            rationale = ["avoid_inversion", "high_humidity_persistence"]
-        case .heatStress:
-            action = "Schedule short-cycle irrigation and canopy cooling check."
-            startTime = "2026-02-12T04:30:00-08:00"
-            endTime = "2026-02-12T07:00:00-08:00"
-            rationale = ["optimal_irrigation_window", "low_evaporation"]
-        case .other:
-            action = "Monitor affected area and reassess in 24 hours."
-            startTime = "2026-02-12T08:00:00-08:00"
-            endTime = "2026-02-12T12:00:00-08:00"
-            rationale = ["standard_monitoring_window"]
-        }
-        
-        recommendation = Recommendation(
-            recommendationId: recommendationId,
-            observationId: observation?.observationId ?? generatedObservationId,
-            playbookId: "pbk_yolo_grape",
-            playbookVersion: appState.activePlaybookVersion,
-            weatherFeaturesId: "wxf_20260211_demo_01",
-            generatedAt: ISO8601DateFormatter().string(from: Date()),
-            issue: extractedIssue,
-            severity: extractedSeverity,
-            action: action,
-            rationale: rationale,
-            timingWindow: RecommendationTimingWindow(
-                startAt: startTime,
-                endAt: endTime,
-                localTimezone: "America/Los_Angeles",
-                confidence: 0.82,
-                drivers: ["inversionPresent=false", "humidityLayering=uniform_humid", "windShearProxy=moderate"]
-            ),
-            riskFlags: [],
-            requiredConfirmation: true,
-            status: .pendingConfirmation
-        )
-        
-        currentStep = .ready
-        if let observation, let recommendation {
-            appState.stageRecommendation(observation: observation, recommendation: recommendation)
+        let recStart = Date()
+
+        guard let obs = observation else { return }
+
+        do {
+            let playbook = try appState.playbookService.fetchActivePlaybook(playbookId: "pbk_yolo_grape")
+
+            let now = ISO8601DateFormatter().string(from: Date())
+            let weather = try appState.weatherService.loadDemoWeatherFeatures(
+                weatherFeaturesId: "wxf_\(obs.observationId)_demo",
+                profileTime: now,
+                location: location
+            )
+
+            let rec = try await appState.recommendationEngine.generateRecommendation(
+                observation: obs,
+                playbook: playbook,
+                weatherFeatures: weather,
+                generatedAt: now
+            )
+
+            recommendation = rec
+            appState.stageRecommendation(observation: obs, recommendation: rec)
+            appState.activePlaybookVersion = playbook.version
+
+            // Record recommendation trace
             appState.recordTraceStage(
                 stage: "recommending",
-                durationMs: 6000,
-                relatedObservationId: observation.observationId,
-                relatedRecommendationId: recommendation.recommendationId
+                durationMs: Int(Date().timeIntervalSince(recStart) * 1000),
+                relatedObservationId: obs.observationId,
+                relatedRecommendationId: rec.recommendationId
             )
+
+            currentStep = .ready
+
+        } catch {
+            errorMessage = "Recommendation failed: \(error.localizedDescription)"
+            currentStep = .error
         }
     }
-    
+
     private func confirmRecommendation() {
         guard let observation, let recommendation else { return }
         let confirmedRecommendation = recommendationWithStatus(recommendation, status: .confirmed)
@@ -321,21 +271,13 @@ struct GenerateRecommendationView: View {
             status: status
         )
     }
-
-    private static func generateEntityId(prefix: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        let date = formatter.string(from: Date())
-        let suffix = String(format: "%04d", Int.random(in: 0...9999))
-        return "\(prefix)_\(date)_\(suffix)"
-    }
 }
 
 // MARK: - Progress Steps (Informative Only)
 
 struct ProgressStepsView: View {
     let currentStep: GenerateRecommendationView.ProcessingStep
-    
+
     var body: some View {
         HStack(spacing: 4) {
             StepDot(label: "Note", isComplete: true, isActive: false)
@@ -352,14 +294,14 @@ struct StepDot: View {
     let label: String
     let isComplete: Bool
     let isActive: Bool
-    
+
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
                 Circle()
                     .fill(isComplete ? Color.green : (isActive ? Color.green.opacity(0.3) : Color(.systemGray4)))
                     .frame(width: 24, height: 24)
-                
+
                 if isComplete {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
@@ -370,7 +312,7 @@ struct StepDot: View {
                         .frame(width: 8, height: 8)
                 }
             }
-            
+
             Text(label)
                 .font(.caption2)
                 .foregroundColor(isActive || isComplete ? .primary : .secondary)
@@ -380,7 +322,7 @@ struct StepDot: View {
 
 struct StepLine: View {
     let isComplete: Bool
-    
+
     var body: some View {
         Rectangle()
             .fill(isComplete ? Color.green : Color(.systemGray4))
@@ -397,7 +339,7 @@ struct CollapsibleNoteCard: View {
     let captureMode: CaptureMode
     let confidence: Double
     @State private var isExpanded = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: { withAnimation { isExpanded.toggle() } }) {
@@ -414,7 +356,7 @@ struct CollapsibleNoteCard: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             if isExpanded {
                 Text(text)
                     .font(.subheadline)
@@ -439,14 +381,14 @@ struct ExtractionSummaryCard: View {
     let fieldBlock: String
     let crop: String
     let variety: String?
-    
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "leaf.fill")
                 .foregroundColor(.green)
                 .font(.title3)
                 .padding(.top, 2)
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 // Line 1: Issue (bold) + severity
                 HStack(spacing: 0) {
@@ -457,7 +399,7 @@ struct ExtractionSummaryCard: View {
                         .font(.body)
                         .foregroundColor(.secondary)
                 }
-                
+
                 // Line 2: Location · Crop
                 HStack(spacing: 0) {
                     Text(fieldBlock)
@@ -471,14 +413,14 @@ struct ExtractionSummaryCard: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             }
-            
+
             Spacer()
         }
         .padding(16)
         .background(Color(.systemGray6))
         .cornerRadius(12)
     }
-    
+
     var issueText: String {
         switch issue {
         case .powderyMildew: return "Powdery Mildew"
@@ -518,7 +460,7 @@ struct GeneratingOverlay: View {
 struct RecommendationResultCard: View {
     let recommendation: Recommendation
     @Binding var showRawDetails: Bool
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Action
@@ -530,15 +472,15 @@ struct RecommendationResultCard: View {
                     .font(.body)
                     .fontWeight(.medium)
             }
-            
+
             Divider()
-            
+
             // Timing Window - Human Readable
             VStack(alignment: .leading, spacing: 8) {
                 Text("Timing Window")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                
+
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(formatTimeHuman(recommendation.timingWindow.startAt))
@@ -551,15 +493,15 @@ struct RecommendationResultCard: View {
                                 .font(.title3)
                         }
                         .foregroundColor(.secondary)
-                        
+
                         Text(getRelativeDay(recommendation.timingWindow.startAt))
                             .font(.caption)
                             .foregroundColor(.green)
                             .padding(.top, 2)
                     }
-                    
+
                     Spacer()
-                    
+
                     // Confidence
                     VStack(spacing: 2) {
                         Text("\(Int(recommendation.timingWindow.confidence * 100))%")
@@ -575,15 +517,15 @@ struct RecommendationResultCard: View {
                 .background(Color.green.opacity(0.08))
                 .cornerRadius(10)
             }
-            
+
             Divider()
-            
+
             // Weather Conditions - Human Readable
             VStack(alignment: .leading, spacing: 8) {
                 Text("Weather Conditions")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                
+
                 FlowLayout(spacing: 8) {
                     ForEach(Array(humanReadableDrivers.enumerated()), id: \.offset) { _, driver in
                         HStack(spacing: 4) {
@@ -599,7 +541,7 @@ struct RecommendationResultCard: View {
                         .cornerRadius(6)
                     }
                 }
-                
+
                 // Raw details disclosure
                 Button(action: { withAnimation { showRawDetails.toggle() } }) {
                     HStack {
@@ -611,7 +553,7 @@ struct RecommendationResultCard: View {
                     .foregroundColor(.secondary)
                 }
                 .padding(.top, 4)
-                
+
                 if showRawDetails {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(recommendation.timingWindow.drivers, id: \.self) { driver in
@@ -632,11 +574,11 @@ struct RecommendationResultCard: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 6, y: 3)
     }
-    
+
     // Human readable drivers
     var humanReadableDrivers: [(text: String, icon: String)] {
         var result: [(String, String)] = []
-        
+
         for driver in recommendation.timingWindow.drivers {
             if driver.contains("inversionPresent=false") {
                 result.append(("No inversion risk", "checkmark.circle"))
@@ -652,14 +594,14 @@ struct RecommendationResultCard: View {
                 result.append(("High wind shear", "wind"))
             }
         }
-        
+
         if result.isEmpty {
             result.append(("Conditions favorable", "checkmark.circle"))
         }
-        
+
         return result
     }
-    
+
     func formatTimeHuman(_ isoString: String) -> String {
         // Parse time and format as "9:00 PM"
         if let tIndex = isoString.firstIndex(of: "T"),
@@ -676,7 +618,7 @@ struct RecommendationResultCard: View {
         }
         return isoString
     }
-    
+
     func getRelativeDay(_ isoString: String) -> String {
         // Simple relative day logic
         if isoString.contains("2026-02-11") {
@@ -696,7 +638,7 @@ struct RecommendationResultCard: View {
 struct ConfirmedActionsView: View {
     let observation: Observation?
     let recommendation: Recommendation?
-    
+
     var body: some View {
         VStack(spacing: 12) {
             // Success message
@@ -710,7 +652,7 @@ struct ConfirmedActionsView: View {
             .frame(maxWidth: .infinity)
             .background(Color.green.opacity(0.1))
             .cornerRadius(10)
-            
+
             // Action buttons
             HStack(spacing: 12) {
                 if let obs = observation, let rec = recommendation {
@@ -730,7 +672,7 @@ struct ConfirmedActionsView: View {
                         )
                     }
                 }
-                
+
                 NavigationLink(destination: HomeView()) {
                     HStack {
                         Image(systemName: "checkmark")

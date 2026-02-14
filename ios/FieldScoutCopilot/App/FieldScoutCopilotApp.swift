@@ -3,11 +3,14 @@ import SwiftUI
 @main
 struct FieldScoutCopilotApp: App {
     @StateObject private var appState = AppState()
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .task {
+                    await appState.loadCactusModel()
+                }
         }
     }
 }
@@ -29,20 +32,59 @@ class AppState: ObservableObject {
             UserDefaults.standard.set(activePlaybookVersion, forKey: playbookVersionDefaultsKey)
         }
     }
-    
+
     // Current observation in progress
     @Published var currentObservation: Observation?
     @Published var currentRecommendation: Recommendation?
-    
+
     // Navigation state
     @Published var observationFlowState: ObservationFlowState = .idle
 
+    // Model status
+    @Published var isModelLoaded: Bool = false
+    @Published var modelStatusMessage: String = "Loading AI model..."
+
+    // MARK: - Services
+
+    let cactusModelManager: CactusModelManager
+    let extractionService: ExtractionServiceImpl
+    let recommendationEngine: RecommendationEngine
+    let weatherService: WeatherServiceImpl
+    let playbookService: PlaybookServiceImpl
+    let localStore: LocalStore
+
     init() {
+        let modelManager = CactusModelManager()
+        let adapter = CactusAdapterImpl(modelManager: modelManager)
+
+        self.cactusModelManager = modelManager
+        self.extractionService = ExtractionServiceImpl(cactusAdapter: adapter)
+        self.recommendationEngine = RecommendationEngine(cactusAdapter: adapter)
+        self.weatherService = WeatherServiceImpl()
+        self.playbookService = PlaybookServiceImpl()
+        self.localStore = LocalStore.shared
+
         if let persistedVersion = UserDefaults.standard.object(forKey: playbookVersionDefaultsKey) as? Int {
             activePlaybookVersion = persistedVersion
         }
         hydrateFromLocalStore()
         triggerSyncIfNeeded()
+    }
+
+    /// Kicks off model loading and updates published state when done.
+    func loadCactusModel() async {
+        await cactusModelManager.loadModels()
+        let state = await cactusModelManager.state
+        switch state {
+        case .ready:
+            isModelLoaded = true
+            modelStatusMessage = "AI model ready"
+        case .failed(let message):
+            isModelLoaded = false
+            modelStatusMessage = "Model failed: \(message)"
+        default:
+            break
+        }
     }
 
     func stageRecommendation(observation: Observation, recommendation: Recommendation) {

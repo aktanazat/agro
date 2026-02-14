@@ -5,8 +5,12 @@ struct HomeView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Offline badge
+            // Status badges
             HStack {
+                ModelStatusBadge(
+                    isLoaded: appState.isModelLoaded,
+                    message: appState.modelStatusMessage
+                )
                 Spacer()
                 OfflineBadge(isOffline: appState.isOfflineMode)
             }
@@ -107,6 +111,35 @@ struct SecondaryButton: View {
         .padding()
         .background(Color(.systemGray6))
         .foregroundColor(.primary)
+        .cornerRadius(12)
+    }
+}
+
+struct ModelStatusBadge: View {
+    let isLoaded: Bool
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if isLoaded {
+                Image(systemName: "brain")
+                    .foregroundColor(.green)
+                    .font(.caption)
+                Text("AI Ready")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            } else {
+                ProgressView()
+                    .scaleEffect(0.7)
+                Text(message)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color(.systemGray6))
         .cornerRadius(12)
     }
 }
