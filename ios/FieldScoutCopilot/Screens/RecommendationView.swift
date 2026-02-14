@@ -161,7 +161,7 @@ struct RecommendationView: View {
         
         // Simulate recommendation generation
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            recommendation = Recommendation(
+            let generatedRecommendation = Recommendation(
                 recommendationId: "rec_20260211_0001",
                 observationId: observation.observationId,
                 playbookId: "pbk_yolo_grape",
@@ -183,16 +183,54 @@ struct RecommendationView: View {
                 requiredConfirmation: true,
                 status: .pendingConfirmation
             )
+            recommendation = generatedRecommendation
             isGenerating = false
             appState.observationFlowState = .recommendationReady
-            appState.currentRecommendation = recommendation
+            appState.stageRecommendation(observation: observation, recommendation: generatedRecommendation)
+            appState.recordTraceStage(
+                stage: "recommending",
+                durationMs: 6000,
+                relatedObservationId: observation.observationId,
+                relatedRecommendationId: generatedRecommendation.recommendationId
+            )
         }
     }
     
     private func confirmRecommendation() {
+        guard let recommendation else { return }
+        let confirmedRecommendation = recommendationWithStatus(recommendation, status: .confirmed)
+        self.recommendation = confirmedRecommendation
         isConfirmed = true
         appState.observationFlowState = .confirmed
-        // TODO: Persist to local storage
+        appState.recordTraceStage(
+            stage: "confirmation",
+            durationMs: 14000,
+            relatedObservationId: observation.observationId,
+            relatedRecommendationId: confirmedRecommendation.recommendationId
+        )
+        appState.confirmAndLog(observation: observation, recommendation: confirmedRecommendation)
+    }
+
+    private func recommendationWithStatus(
+        _ recommendation: Recommendation,
+        status: RecommendationStatus
+    ) -> Recommendation {
+        Recommendation(
+            recommendationId: recommendation.recommendationId,
+            observationId: recommendation.observationId,
+            playbookId: recommendation.playbookId,
+            playbookVersion: recommendation.playbookVersion,
+            weatherFeaturesId: recommendation.weatherFeaturesId,
+            generatedAt: recommendation.generatedAt,
+            issue: recommendation.issue,
+            severity: recommendation.severity,
+            action: recommendation.action,
+            rationale: recommendation.rationale,
+            timingWindow: recommendation.timingWindow,
+            riskFlags: recommendation.riskFlags,
+            requiredConfirmation: recommendation.requiredConfirmation,
+            status: status
+        )
     }
     
     private func formatTime(_ isoString: String) -> String {

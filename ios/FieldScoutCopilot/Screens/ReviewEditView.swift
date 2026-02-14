@@ -135,6 +135,7 @@ struct ReviewEditView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             isExtracting = false
             appState.observationFlowState = .extracted
+            appState.recordTraceStage(stage: "extracting", durationMs: 14000)
         }
     }
     

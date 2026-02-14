@@ -3,7 +3,6 @@ import SwiftUI
 struct HistoryView: View {
     @EnvironmentObject var appState: AppState
     
-    // Demo history items
     @State private var historyItems: [HistoryItem] = []
     
     var body: some View {
@@ -39,26 +38,22 @@ struct HistoryView: View {
     }
     
     private func loadHistory() {
-        // Load from current app state if available
-        if let observation = appState.currentObservation,
-           let recommendation = appState.currentRecommendation {
-            historyItems = [
-                HistoryItem(
-                    observationId: observation.observationId,
-                    recommendationId: recommendation.recommendationId,
-                    issue: observation.extraction.issue,
-                    severity: observation.extraction.severity,
-                    fieldBlock: observation.extraction.fieldBlock,
-                    status: recommendation.status,
-                    createdAt: observation.createdAt
-                )
-            ]
+        historyItems = appState.recentHistoryRecords().map { record in
+            HistoryItem(
+                observationId: record.observation.observationId,
+                recommendationId: record.recommendation?.recommendationId ?? "pending",
+                issue: record.observation.extraction.issue,
+                severity: record.observation.extraction.severity,
+                fieldBlock: record.observation.extraction.fieldBlock,
+                status: record.recommendation?.status ?? .pendingConfirmation,
+                createdAt: record.observation.createdAt
+            )
         }
     }
 }
 
 struct HistoryItem: Identifiable {
-    let id = UUID()
+    var id: String { observationId }
     let observationId: String
     let recommendationId: String
     let issue: Issue
