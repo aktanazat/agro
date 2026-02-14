@@ -3,6 +3,7 @@ import { createExtractionAdapter } from "../src/pipeline";
 import { validateObservation } from "../src/validator";
 import { extractFromText } from "../src/extractor";
 import { evaluateGating } from "../src/gating";
+import { CactusStub } from "../src/cactus-stub";
 import type { CapturePayload } from "../src/types";
 import canonicalCapture from "../fixtures/canonical-capture.json";
 import canonicalObservation from "../fixtures/canonical-observation.json";
@@ -95,11 +96,12 @@ describe("pipeline", () => {
     expect(validation.valid).toBe(true);
   });
 
-  it("emits 7 trace events", async () => {
+  it("emits 7 trace events with observationId", async () => {
     const adapter = createExtractionAdapter();
     const result = await adapter.extract(CANONICAL_PAYLOAD);
     expect(result.trace).toHaveLength(7);
     expect(result.trace[0].traceId).toBe("trace_20260211_demo_01");
+    expect(result.trace[0].metadata?.observationId).toBe("obs_20260211_0001");
   });
 
   it("handles typed fallback path", async () => {
@@ -119,7 +121,7 @@ describe("pipeline", () => {
     expect(result.observation.captureMode).toBe("typed");
   });
 
-  it("routes low confidence to manual review", async () => {
+  it("routes low confidence to manual review with ErrorEnvelope", async () => {
     const adapter = createExtractionAdapter();
     const result = await adapter.extract({
       observationId: "obs_20260211_0001",
@@ -132,5 +134,56 @@ describe("pipeline", () => {
     if (result.ok) return;
 
     expect(result.gating.decision).toBe("manual_review");
+    expect(result.error.error.code).toBe("VALIDATION_ERROR");
+    expect(result.error.requestId).toBe("req_obs_20260211_0001");
+    expect(result.error.error.traceId).toBe("trace_20260211_demo_01");
+  });
+
+  it("flags ai_runtime_fallback_used when no cactus runtime", async () => {
+    const adapter = createExtractionAdapter();
+    const result = await adapter.extract(CANONICAL_PAYLOAD);
+
+    const extractionTrace = result.trace.find((t) => t.stage === "extraction_complete");
+    expect(extractionTrace?.status).toBe("fallback");
+    expect(extractionTrace?.metadata?.ai_runtime_fallback_used).toBe(true);
+  });
+
+  it("does not flag fallback for typed input", async () => {
+    const adapter = createExtractionAdapter();
+    const result = await adapter.extract({
+      observationId: "obs_20260211_0001",
+      captureMode: "typed",
+      rawNoteText: "Block 6 Chardonnay. White powder, moderate.",
+      transcription: { text: "", source: "none", confidence: 0 },
+    });
+
+    const extractionTrace = result.trace.find((t) => t.stage === "extraction_complete");
+    expect(extractionTrace?.status).toBe("ok");
+    expect(extractionTrace?.metadata?.ai_runtime_fallback_used).toBeUndefined();
+  });
+
+  it("falls back to regex when cactus stub returns empty", async () => {
+    const cactus = new CactusStub();
+    await cactus.init();
+    await cactus.loadModel("cactus_extract_q4", "int4");
+
+    const adapter = createExtractionAdapter({ cactusRuntime: cactus });
+    const result = await adapter.extract(CANONICAL_PAYLOAD);
+
+    const extractionTrace = result.trace.find((t) => t.stage === "extraction_complete");
+    expect(extractionTrace?.status).toBe("fallback");
+    expect(extractionTrace?.metadata?.ai_runtime_fallback_used).toBe(true);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.observation.extraction.issue).toBe("powdery_mildew");
+  });
+
+  it("completes extraction within latency budget", async () => {
+    const adapter = createExtractionAdapter();
+    const start = Date.now();
+    await adapter.extract(CANONICAL_PAYLOAD);
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeLessThan(15_000);
   });
 });

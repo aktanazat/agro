@@ -9,7 +9,8 @@
       "fieldBlock": "Block 7",
       "issue": "powdery_mildew",
       "severity": "moderate",
-      "symptoms": ["white powder on upper leaf surfaces", "slight musty odor"]
+      "symptoms": ["white powder on upper leaf surfaces", "slight musty odor"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -22,7 +23,8 @@
       "fieldBlock": "Block 3",
       "issue": "powdery_mildew",
       "severity": "low",
-      "symptoms": ["small white spots on lower leaves"]
+      "symptoms": ["small white spots on lower leaves"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -35,7 +37,8 @@
       "fieldBlock": "Block 12",
       "issue": "powdery_mildew",
       "severity": "high",
-      "symptoms": ["white coating covering most leaves and some clusters", "leaves curling"]
+      "symptoms": ["white coating covering most leaves and some clusters", "leaves curling"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -48,7 +51,8 @@
       "fieldBlock": "Block 5",
       "issue": "heat_stress",
       "severity": "moderate",
-      "symptoms": ["midday leaf curl", "wilting on south-facing rows"]
+      "symptoms": ["midday leaf curl", "wilting on south-facing rows"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -61,7 +65,8 @@
       "fieldBlock": "Block 9",
       "issue": "heat_stress",
       "severity": "high",
-      "symptoms": ["severe wilting across entire block", "leaves scorched and brown at edges"]
+      "symptoms": ["severe wilting across entire block", "leaves scorched and brown at edges"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -74,7 +79,8 @@
       "fieldBlock": "unknown",
       "issue": "other",
       "severity": "low",
-      "symptoms": ["leaves look a bit off"]
+      "symptoms": ["leaves look a bit off"],
+      "recommendationEligible": "yes_after_confirmation"
     }
   },
   {
@@ -87,7 +93,8 @@
       "fieldBlock": "Block 4",
       "issue": "powdery_mildew",
       "severity": "moderate",
-      "symptoms": ["white patches", "powder on leaf surfaces"]
+      "symptoms": ["white patches", "powder on leaf surfaces"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -100,7 +107,8 @@
       "fieldBlock": "Block 2",
       "issue": "powdery_mildew",
       "severity": "moderate",
-      "symptoms": ["powdery mildew on upper canopy"]
+      "symptoms": ["powdery mildew on upper canopy"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -113,7 +121,8 @@
       "fieldBlock": "Block 6",
       "issue": "powdery_mildew",
       "severity": "moderate",
-      "symptoms": ["white powder on upper leaf surfaces"]
+      "symptoms": ["white powder on upper leaf surfaces"],
+      "recommendationEligible": "yes"
     }
   },
   {
@@ -126,7 +135,22 @@
       "fieldBlock": "unknown",
       "issue": "other",
       "severity": "low",
-      "symptoms": ["grapes look bad"]
+      "symptoms": ["grapes look bad"],
+      "recommendationEligible": "yes_after_confirmation"
+    }
+  },
+  {
+    "caseId": "eval_11",
+    "noteText": "Block 1 Chardonnay. White powder on leaves.",
+    "captureMode": "voice",
+    "confidence": 0.95,
+    "expected": {
+      "crop": "grape",
+      "fieldBlock": "Block 1",
+      "issue": "powdery_mildew",
+      "severity": "moderate",
+      "symptoms": ["white powder on leaves"],
+      "recommendationEligible": "yes"
     }
   }
 ]
